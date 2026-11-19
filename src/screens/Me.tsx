@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { exportBackup, importBackup } from '../lib/backup';
+import { exportExchange } from '../lib/lifeos';
 import { Card, SectionTitle } from '../components/ui';
 
 export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCount: number }) {
@@ -10,6 +11,19 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
   async function doExport() {
     const name = await exportBackup();
     setMsg(`已导出备份文件 ${name}，请把它存到你放心的地方（文件 App / iCloud）。`);
+  }
+
+  async function doExchange() {
+    try {
+      const r = await exportExchange();
+      setMsg(
+        r.records === 0
+          ? '还没有可发送的记录：先记几笔阅读/观影，再来发送。'
+          : `已生成发往人生K线图的文件 ${r.name}（${r.days} 天数据）。把它存到「文件」App，再打开人生K线图 →「数据」→「收数据」选进来就行。只含阅读时长与活动事实，不含你的感受原文。`,
+      );
+    } catch (e) {
+      setMsg(`生成失败：${e instanceof Error ? e.message : '未知错误'}。`);
+    }
   }
 
   async function doImport() {
@@ -32,6 +46,17 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
           现在共有 <b>{worksCount}</b> 部作品、<b>{entriesCount}</b> 条记录。
           全部数据只存在这台手机的浏览器里，没有服务器，也不上传任何地方。
         </p>
+      </Card>
+
+      <SectionTitle>发到人生K线图</SectionTitle>
+      <Card className="space-y-3 px-4 py-4">
+        <p className="text-[14px] leading-relaxed text-ink/70">
+          把阅读时长和阅读/观影活动打包成一个小文件，交给人生K线图算「学习」和「精神生活」两维。
+          只发事实，不发你写的感受和摘句原文。
+        </p>
+        <button onClick={doExchange} className="w-full rounded-xl bg-cinnabar-600 py-3 text-[15.5px] font-semibold text-white" data-testid="export-exchange">
+          生成交换文件
+        </button>
       </Card>
 
       <SectionTitle>备份与恢复</SectionTitle>
@@ -89,7 +114,7 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
           它不社交、没有点赞和排行，只是安安静静地记下你读过什么、看过什么，
           以及在不同时间里，它们给过你什么样的感受。
         </p>
-        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.1.0 · LIFEOS 项目 05</p>
+        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.2.0 · LIFEOS 项目 05</p>
       </Card>
     </div>
   );
