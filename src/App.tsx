@@ -3,12 +3,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './lib/db';
 import { Home } from './screens/Home';
 import { Shelf } from './screens/Shelf';
+import { Records } from './screens/Records';
 import { Detail } from './screens/Detail';
 import { Year } from './screens/Year';
 import { Me } from './screens/Me';
 import { WorkForm } from './components/forms';
 
-type Tab = 'home' | 'shelf' | 'year' | 'me';
+type Tab = 'home' | 'shelf' | 'records' | 'year' | 'me';
 
 // 底栏图标用内联 SVG：系统字符图标（⌂ ▤ ◔）在不同系统上渲染差异太大，不可靠。
 function TabIcon({ tab, active }: { tab: Tab; active: boolean }) {
@@ -39,6 +40,15 @@ function TabIcon({ tab, active }: { tab: Tab; active: boolean }) {
           <path d="M9 7.5h6" />
         </svg>
       );
+    case 'records':
+      return (
+        <svg {...common}>
+          <path d="M8 6h12M8 12h12M8 18h12" />
+          <circle cx="4" cy="6" r="0.5" fill="currentColor" />
+          <circle cx="4" cy="12" r="0.5" fill="currentColor" />
+          <circle cx="4" cy="18" r="0.5" fill="currentColor" />
+        </svg>
+      );
     case 'year':
       return (
         <svg {...common}>
@@ -59,11 +69,12 @@ function TabIcon({ tab, active }: { tab: Tab; active: boolean }) {
 const TABS: { key: Tab; label: string }[] = [
   { key: 'home', label: '首页' },
   { key: 'shelf', label: '书架' },
-  { key: 'year', label: '年度' },
+  { key: 'records', label: '记录' },
+  { key: 'year', label: '回顾' },
   { key: 'me', label: '我的' },
 ];
 
-const TITLES: Record<Tab, string> = { home: '阅迹', shelf: '书架', year: '年度回顾', me: '我的' };
+const TITLES: Record<Tab, string> = { home: '阅迹', shelf: '书架', records: '记录', year: '年度回顾', me: '我的' };
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home');
@@ -87,7 +98,7 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col">
-      <header className="pt-safe sticky top-0 z-30 bg-paper/95 backdrop-blur">
+      <header className="pt-safe sticky top-0 z-30 bg-paper/90 backdrop-blur-xl">
         <div className="flex items-baseline justify-between px-5 pb-2 pt-3">
           <span className="font-serif text-[21px] font-bold tracking-wide">
             {detailWork ? '作品详情' : TITLES[tab]}
@@ -98,22 +109,26 @@ export default function App() {
       </header>
 
       <main className="flex-1 pb-[calc(env(safe-area-inset-bottom)+92px)] pt-3">
-        {detailWork ? (
-          <Detail work={detailWork} entries={entryList} onBack={() => setDetailId(null)} />
-        ) : tab === 'home' ? (
-          <Home works={workList} entries={entryList} onOpenWork={openWork} onAddWork={() => setAddWork(true)} />
-        ) : tab === 'shelf' ? (
-          <Shelf works={workList} entries={entryList} onOpenWork={openWork} onAddWork={() => setAddWork(true)} />
-        ) : tab === 'year' ? (
-          <Year works={workList} entries={entryList} onOpenWork={openWork} />
-        ) : (
-          <Me worksCount={workList.length} entriesCount={entryList.length} />
-        )}
+        <div key={detailWork ? `detail-${detailWork.id}` : tab} className="view-enter">
+          {detailWork ? (
+            <Detail work={detailWork} entries={entryList} onBack={() => setDetailId(null)} />
+          ) : tab === 'home' ? (
+            <Home works={workList} entries={entryList} onOpenWork={openWork} onAddWork={() => setAddWork(true)} />
+          ) : tab === 'shelf' ? (
+            <Shelf works={workList} entries={entryList} onOpenWork={openWork} onAddWork={() => setAddWork(true)} />
+          ) : tab === 'records' ? (
+            <Records works={workList} entries={entryList} onOpenWork={openWork} />
+          ) : tab === 'year' ? (
+            <Year works={workList} entries={entryList} onOpenWork={openWork} />
+          ) : (
+            <Me worksCount={workList.length} entriesCount={entryList.length} />
+          )}
+        </div>
       </main>
 
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40" aria-label="主导航">
         <div className="mx-auto max-w-[520px] px-4 pb-2">
-          <div className="flex rounded-[26px] border border-ink/[0.07] bg-card/90 shadow-[0_10px_30px_rgb(60_40_20/0.12)] backdrop-blur-xl">
+          <div className="flex rounded-[26px] border border-ink/[0.07] bg-card/85 shadow-[0_10px_30px_rgb(60_40_20/0.12)] backdrop-blur-xl">
             {TABS.map((t) => (
               <button
                 key={t.key}

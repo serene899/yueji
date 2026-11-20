@@ -4,8 +4,10 @@
 
 export type WorkType = 'book' | 'tv' | 'movie' | 'other';
 
-/** planned 想读/想看 · doing 在读 · done 读完/看完 */
-export type WorkStatus = 'planned' | 'doing' | 'done';
+/** planned 想读/想看 · doing 进行中 · done 读完/看完 · paused 暂停 · dropped 弃读/弃剧/搁置（v0.4.0 补齐） */
+export type WorkStatus = 'planned' | 'doing' | 'done' | 'paused' | 'dropped';
+
+export const ALL_STATUSES: WorkStatus[] = ['planned', 'doing', 'done', 'paused', 'dropped'];
 
 export interface Work {
   id: string;
@@ -23,6 +25,10 @@ export interface Work {
   durationMin?: number;
   /** 电视剧：总集数 */
   totalEpisodes?: number;
+  /** 「其他」类型的细分类（v0.4.0）：音乐/播客/纪录片/综艺/游戏/演出/展览/其他，可空 */
+  subcategory?: string;
+  /** 状态手动锁定（v0.4.0）：用户在编辑作品时手动改过状态即锁定，记记录只更新进度、不再自动改状态 */
+  statusLocked?: boolean;
   /** 封面图（v0.2.0）：压缩后的 JPEG Blob，只存本机；备份时转 base64 随文件走 */
   cover?: Blob;
   status: WorkStatus;
@@ -56,10 +62,15 @@ export interface Entry {
 }
 
 export const STATUS_LABEL: Record<WorkStatus, string> = {
-  planned: '想读想看',
+  planned: '计划中',
   doing: '进行中',
   done: '已完成',
+  paused: '暂停',
+  dropped: '已搁置',
 };
+
+/** 「其他」类型的细分类（v0.4.0） */
+export const SUBCATEGORIES = ['音乐', '播客', '纪录片', '综艺', '游戏', '演出', '展览', '其他'];
 
 export const BOOK_CATEGORIES = ['文学', '小说', '历史', '哲学', '科学', '社会', '心理', '传记', '诗歌', '其他'];
 export const MOVIE_CATEGORIES = ['剧情', '喜剧', '科幻', '纪录片', '动画', '悬疑', '爱情', '动作', '其他'];
@@ -68,11 +79,20 @@ export const OTHER_CATEGORIES = ['音乐', '播客', '演出', '展览', '游戏
 
 export const TYPE_ICON: Record<WorkType, string> = { book: '📖', tv: '📺', movie: '🎬', other: '✦' };
 
-/** 按作品类型给出状态文案：书 想读/在读/读完；剧与电影 想看/在看/看完；其他用中性说法 */
+/** 按作品类型给出状态文案：书 想读/在读/读完/暂停/弃读；剧 想看/在看/看完/暂停/弃剧；电影 想看/观看中/看完；其他用中性说法 */
 export function statusText(type: WorkType, status: WorkStatus): string {
+  if (status === 'paused') return '暂停';
+  if (status === 'dropped') return type === 'book' ? '弃读' : type === 'tv' ? '弃剧' : '搁置';
   if (type === 'book') return status === 'done' ? '读完' : status === 'doing' ? '在读' : '想读';
   if (type === 'other') return status === 'done' ? '已完成' : status === 'doing' ? '进行中' : '计划中';
+  if (type === 'movie') return status === 'done' ? '看完' : status === 'doing' ? '观看中' : '想看';
   return status === 'done' ? '看完' : status === 'doing' ? '在看' : '想看';
+}
+
+/** 各类型可选的状态：电影只有想看/观看中/看完三档，其余五档齐全 */
+export function statusOptionsFor(type: WorkType): WorkStatus[] {
+  if (type === 'movie') return ['planned', 'doing', 'done'];
+  return ALL_STATUSES;
 }
 
 export function newId(): string {

@@ -51,6 +51,21 @@ describe('parseBackup', () => {
     const bad = await buildBackup(works, [{ ...entries[0], date: '2026/11/02' }]);
     expect(parseBackup(bad).ok).toBe(false);
   });
+  it('v0.4.0 新状态（暂停/弃读）与细分类、状态锁定能通过校验并往返', async () => {
+    const paused: Work = { ...works[0], status: 'paused', subcategory: undefined, statusLocked: true };
+    const b = await buildBackup([paused], entries);
+    const r = parseBackup(JSON.parse(JSON.stringify(b)));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data.works[0].status).toBe('paused');
+      expect(r.data.works[0].statusLocked).toBe(true);
+    }
+    const other: Work = { id: 'o1', type: 'other', title: '某专辑', creator: '某乐队', category: '音乐', subcategory: '音乐', status: 'doing', highlight: false, createdAt: 1, updatedAt: 1 };
+    const b2 = await buildBackup([other], []);
+    const r2 = parseBackup(JSON.parse(JSON.stringify(b2)));
+    expect(r2.ok).toBe(true);
+    if (r2.ok) expect(backupWorkToWork(r2.data.works[0]).subcategory).toBe('音乐');
+  });
   it('电视剧类型与集数字段能通过校验', async () => {
     const tv: Work = { id: 't1', type: 'tv', title: '漫长的季节', creator: '辛爽', category: '悬疑', totalEpisodes: 12, status: 'doing', highlight: false, createdAt: 1, updatedAt: 1 };
     const b = await buildBackup([tv], [{ id: 'e9', workId: 't1', date: '2026-11-21', episode: 7, feeling: '', quote: '', createdAt: 1, updatedAt: 1 }]);

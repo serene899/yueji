@@ -13,8 +13,10 @@ export default {
         cinnabar: { 50: '#fbf1ec', 100: '#f6ddd2', 300: '#e09a7f', 500: '#c2502e', 600: '#a83e21', 700: '#8c331b' },
         // 靛青：电影的辅助色
         indigo2: { 100: '#dde4f2', 500: '#44639e', 600: '#37538a' },
-        // 松绿：电视剧的辅助色
+        // 松绿：保留（状态点缀）
         pine: { 100: '#d9ebe2', 500: '#2f7d64', 600: '#276851' },
+        // 蓝紫：电视剧的辅助色（v0.4.0 起，剧走蓝紫、电影走靛青冷色、书走朱砂暖色）
+        iris: { 100: '#e4e3f8', 500: '#6a67c9', 600: '#5552ad' },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"PingFang SC"', '"Hiragino Sans GB"', '"Noto Sans CJK SC"', '"Microsoft YaHei"', 'sans-serif'],

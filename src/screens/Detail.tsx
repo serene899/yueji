@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { statusText, type Entry, type Work } from '../lib/types';
-import { bookProgress, currentEpisode, currentPage, entriesOf, tvProgress } from '../lib/stats';
+import { bookProgress, currentEpisode, currentPage, entriesOf, entryMinutes, tvProgress } from '../lib/stats';
 import { fmtDate, fmtMinutes } from '../lib/time';
 import { Card, Cover, Empty, ProgressBar, SectionTitle } from '../components/ui';
 import { EntryForm, WorkForm } from '../components/forms';
@@ -24,7 +24,7 @@ export function Detail({
   const page = currentPage(work, entries);
   const ep = currentEpisode(work, entries);
   const quotes = list.filter((e) => e.quote.trim());
-  const totalMinutes = list.reduce((s, e) => s + (e.minutes ?? 0), 0);
+  const totalMinutes = list.reduce((s, e) => s + entryMinutes(work, e), 0);
 
   return (
     <div className="px-4">
@@ -56,31 +56,43 @@ export function Detail({
           {work.startDate && <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">{fmtDate(work.startDate)} 开始</span>}
           {work.finishDate && <span className="rounded-full bg-cinnabar-500/10 px-2.5 py-1 text-cinnabar-600">{fmtDate(work.finishDate)} 完成</span>}
           {work.highlight && <span className="rounded-full bg-cinnabar-500/10 px-2.5 py-1 text-cinnabar-600">印象深刻</span>}
+          {list.length > 0 && <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">{list.length} 次记录</span>}
           {totalMinutes > 0 && <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">累计 {fmtMinutes(totalMinutes)}</span>}
+          {work.statusLocked && <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/45">状态手动管理中</span>}
         </div>
       </div>
 
-      {work.type === 'book' && p !== null && (
+      {work.type === 'book' && work.totalPages && (
         <Card className="mt-4 px-4 py-3.5">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="text-[14px] text-ink/60">阅读进度</span>
             <span className="font-serif text-[17px] font-bold text-cinnabar-600">
-              {Math.round(p * 100)}%<span className="ml-2 text-[13px] font-normal text-ink/50">读到 {page} / {work.totalPages} 页</span>
+              {p !== null ? `${Math.round(p * 100)}%` : '—'}
+              <span className="ml-2 text-[13px] font-normal text-ink/50">读到 {page} / {work.totalPages} 页</span>
             </span>
           </div>
-          <ProgressBar value={p} />
+          <ProgressBar value={p ?? 0} />
+          {work.status === 'done' && p !== null && p < 1 && (
+            <p className="mt-2 text-[12.5px] text-ink/45">已标记读完；进度按记录里的页码计算，不会被完成状态改掉。</p>
+          )}
+          {p === null && <p className="mt-2 text-[12.5px] text-ink/45">还没有记下页码，记一次阅读后这里会动起来。</p>}
         </Card>
       )}
 
-      {work.type === 'tv' && tp !== null && (
+      {work.type === 'tv' && work.totalEpisodes && (
         <Card className="mt-4 px-4 py-3.5">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="text-[14px] text-ink/60">追剧进度</span>
-            <span className="font-serif text-[17px] font-bold text-pine-600">
-              {Math.round(tp * 100)}%<span className="ml-2 text-[13px] font-normal text-ink/50">看到 {ep} / {work.totalEpisodes} 集</span>
+            <span className="font-serif text-[17px] font-bold text-iris-600">
+              {tp !== null ? `${Math.round(tp * 100)}%` : '—'}
+              <span className="ml-2 text-[13px] font-normal text-ink/50">看到 {ep} / {work.totalEpisodes} 集</span>
             </span>
           </div>
-          <ProgressBar value={tp} tone="tv" />
+          <ProgressBar value={tp ?? 0} tone="tv" />
+          {work.status === 'done' && tp !== null && tp < 1 && (
+            <p className="mt-2 text-[12.5px] text-ink/45">已标记看完；进度按记录里的集数计算，不会被完成状态改掉。</p>
+          )}
+          {tp === null && <p className="mt-2 text-[12.5px] text-ink/45">还没有记下集数，记一次追剧后这里会动起来。</p>}
         </Card>
       )}
 
@@ -124,7 +136,7 @@ export function Detail({
                   {e.page ? <span className="text-ink/50"> · 读到第 {e.page} 页</span> : null}
                   {e.episode ? <span className="text-ink/50"> · 看到第 {e.episode} 集</span> : null}
                 </span>
-                {e.minutes ? <span className="shrink-0 text-[12.5px] text-ink/45">{fmtMinutes(e.minutes)}</span> : null}
+                {entryMinutes(work, e) > 0 ? <span className="shrink-0 text-[12.5px] text-ink/45">{fmtMinutes(entryMinutes(work, e))}</span> : null}
               </div>
               {e.feeling && <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink/75">{e.feeling}</p>}
               {e.quote && <p className="mt-1.5 border-l-2 border-cinnabar-500/50 pl-2 font-serif text-[13.5px] italic leading-relaxed text-ink/60">「{e.quote}」</p>}

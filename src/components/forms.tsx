@@ -1,17 +1,20 @@
 import { useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BOOK_CATEGORIES,
   MOVIE_CATEGORIES,
   OTHER_CATEGORIES,
+  SUBCATEGORIES,
   TV_CATEGORIES,
   newId,
+  statusOptionsFor,
   statusText,
   type Entry,
   type Work,
   type WorkStatus,
   type WorkType,
 } from '../lib/types';
-import { deleteEntry, deleteWork, putEntry, putWork } from '../lib/db';
+import { db, deleteEntry, deleteWork, putEntry, putWork } from '../lib/db';
 import { processCover } from '../lib/image';
 import { todayStr } from '../lib/time';
 import { Cover, DeleteButton, Field, Segmented, Sheet, inputCls } from './ui';
@@ -47,18 +50,22 @@ export function WorkForm({
   const [title, setTitle] = useState(initial?.title ?? '');
   const [creator, setCreator] = useState(initial?.creator ?? '');
   const [category, setCategory] = useState(initial?.category ?? '');
+  const [subcategory, setSubcategory] = useState(initial?.subcategory ?? '');
   const [year, setYear] = useState(initial?.year ? String(initial.year) : '');
   const [totalPages, setTotalPages] = useState(initial?.totalPages ? String(initial.totalPages) : '');
   const [durationMin, setDurationMin] = useState(initial?.durationMin ? String(initial.durationMin) : '');
   const [totalEpisodes, setTotalEpisodes] = useState(initial?.totalEpisodes ? String(initial.totalEpisodes) : '');
   const [status, setStatus] = useState<WorkStatus>(initial?.status ?? 'planned');
+  const [statusLocked, setStatusLocked] = useState(initial?.statusLocked ?? false);
   const [startDate, setStartDate] = useState(initial?.startDate ?? '');
   const [finishDate, setFinishDate] = useState(initial?.finishDate ?? '');
   const [highlight, setHighlight] = useState(initial?.highlight ?? false);
   const [cover, setCover] = useState<Blob | undefined>(initial?.cover);
   const [coverBusy, setCoverBusy] = useState(false);
   const [error, setError] = useState('');
+  const [dupWarn, setDupWarn] = useState<Work | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const allWorks = useLiveQuery(() => db.works.toArray(), [], []);
 
   const cats = CATEGORIES[type];
 
@@ -88,10 +95,21 @@ export function WorkForm({
     if (fileRef.current) fileRef.current.value = '';
   }
 
-  async function save() {
+  async function save(force = false) {
     if (!title.trim()) {
       setError('先写下作品的名字');
       return;
+    }
+    // 重复提醒：同类型、同名作品已存在时先提醒，用户确认后仍可保存（例如同名不同作品）
+    if (!force) {
+      const norm = (s: string) => s.trim().replace(/\s+/g, '').toLowerCase();
+      const dup = (allWorks ?? []).find(
+        (w) => w.id !== initial?.id && w.type === type && norm(w.title) === norm(title),
+      );
+      if (dup) {
+        setDupWarn(dup);
+        return;
+      }
     }
     const now = Date.now();
     const w: Work = {
@@ -99,14 +117,17 @@ export function WorkForm({
       type,
       title: title.trim(),
       creator: creator.trim(),
-      category: category.trim() || '其他',
+      category: type === 'other' ? subcategory || '其他' : category.trim() || '其他',
+      subcategory: type === 'other' ? subcategory || undefined : undefined,
       year: year ? Number(year) : undefined,
       totalPages: type === 'book' && totalPages ? Number(totalPages) : undefined,
       durationMin: type === 'movie' && durationMin ? Number(durationMin) : undefined,
       totalEpisodes: type === 'tv' && totalEpisodes ? Number(totalEpisodes) : undefined,
       status,
+      statusLocked,
       startDate: startDate || undefined,
-      finishDate: status === 'done' ? finishDate || todayStr() : finishDate || undefined,
+      // 改回未完成时清掉完成日期，避免年度回顾还按它统计完成
+      finishDate: status === 'done' ? finishDate || todayStr() : undefined,
       highlight,
       cover,
       createdAt: initial?.createdAt ?? now,
@@ -125,6 +146,9 @@ export function WorkForm({
           onChange={(t) => {
             setType(t);
             setCategory('');
+            setSubcategory('');
+            setDupWarn(null);
+            if (!statusOptionsFor(t).includes(status)) setStatus('planned');
           }}
           options={[
             { value: 'book', label: '📖 书' },
@@ -172,25 +196,41 @@ export function WorkForm({
       </div>
 
       <Field label={type === 'book' ? '书名 *' : type === 'movie' ? '片名 *' : type === 'tv' ? '剧名 *' : '名称 *'}>
-        <input aria-label="作品名" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={type === 'book' ? '例如 活着' : type === 'tv' ? '例如 漫长的季节' : type === 'movie' ? '例如 重庆森林' : '例如 一场演出、一张专辑'} />
+        <input aria-label="作品名" className={inputCls} value={title} onChange={(e) => { setTitle(e.target.value); setDupWarn(null); }} placeholder={type === 'book' ? '例如 活着' : type === 'tv' ? '例如 漫长的季节' : type === 'movie' ? '例如 重庆森林' : '例如 一场演出、一张专辑'} />
       </Field>
       <Field label={CREATOR_LABEL[type]}>
         <input aria-label="创作者" className={inputCls} value={creator} onChange={(e) => setCreator(e.target.value)} placeholder={type === 'book' ? '例如 余华' : type === 'tv' ? '例如 辛爽 / 范伟' : type === 'movie' ? '例如 王家卫' : ''} />
       </Field>
-      <Field label={type === 'book' ? '分类' : '类型'}>
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {cats.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`rounded-full px-3 py-1 text-[13px] ${category === c ? 'bg-cinnabar-500 text-white' : 'bg-ink/[0.06] text-ink/70'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        <input aria-label="分类" className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="也可以自己写一个分类" />
-      </Field>
+      {type === 'other' ? (
+        <Field label="细分类（可不选）">
+          <div className="flex flex-wrap gap-1.5">
+            {SUBCATEGORIES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setSubcategory(subcategory === c ? '' : c)}
+                className={`rounded-full px-3 py-1 text-[13px] ${subcategory === c ? 'bg-cinnabar-500 text-white' : 'bg-ink/[0.06] text-ink/70'}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </Field>
+      ) : (
+        <Field label={type === 'book' ? '分类' : '类型'}>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {cats.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`rounded-full px-3 py-1 text-[13px] ${category === c ? 'bg-cinnabar-500 text-white' : 'bg-ink/[0.06] text-ink/70'}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <input aria-label="分类" className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="也可以自己写一个分类" />
+        </Field>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <Field label={type === 'book' ? '出版年份' : type === 'tv' ? '播出年份' : type === 'movie' ? '上映年份' : '年份'}>
           <input aria-label="年份" className={inputCls} inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, ''))} placeholder="2023" />
@@ -215,13 +255,24 @@ export function WorkForm({
         <Segmented
           ariaLabel="状态"
           value={status}
-          onChange={setStatus}
-          options={[
-            { value: 'planned', label: statusText(type, 'planned') },
-            { value: 'doing', label: statusText(type, 'doing') },
-            { value: 'done', label: statusText(type, 'done') },
-          ]}
+          onChange={(s) => {
+            setStatus(s);
+            // 编辑已有作品时手动改了状态 = 以后以手动为准，记记录不再自动改状态（进度照常算）；
+            // 新建作品时选的只是起点状态，不锁定，自动联动照常工作。
+            if (initial && s !== initial.status) setStatusLocked(true);
+          }}
+          options={statusOptionsFor(type).map((s) => ({ value: s, label: statusText(type, s) }))}
         />
+        {statusLocked ? (
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink/45">
+            状态由你手动管理：记记录只会更新进度，不会再自动改状态。
+            <button onClick={() => setStatusLocked(false)} className="ml-1 font-medium text-cinnabar-600">恢复自动</button>
+          </p>
+        ) : (
+          initial && (
+            <p className="mt-1.5 text-[12.5px] text-ink/45">状态会随记录自动变化（开始、读完/看完都会自动更新）。</p>
+          )
+        )}
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="开始日期">
@@ -235,8 +286,17 @@ export function WorkForm({
         <span className="text-[15px]">印象深刻</span>
         <input aria-label="印象深刻" type="checkbox" className="h-5 w-5 accent-[#a83e21]" checked={highlight} onChange={(e) => setHighlight(e.target.checked)} />
       </label>
+      {dupWarn && (
+        <div className="mb-3 rounded-xl bg-amber-500/10 px-3.5 py-3 text-[14px] leading-relaxed text-ink/80">
+          书架里已经有一部同名的《{dupWarn.title}》（{dupWarn.creator || '未填创作者'}）。记录加错地方会散在两部作品里，确认不是同一部再保存。
+          <div className="mt-2 flex gap-2">
+            <button onClick={() => void save(true)} className="flex-1 rounded-lg bg-cinnabar-600 py-2 font-semibold text-white">仍要保存</button>
+            <button onClick={() => setDupWarn(null)} className="flex-1 rounded-lg bg-ink/[0.06] py-2">先不保存</button>
+          </div>
+        </div>
+      )}
       {error && <p className="mb-3 text-[14px] text-red-600">{error}</p>}
-      <button onClick={save} className="w-full rounded-xl bg-cinnabar-600 py-3 text-[16px] font-semibold text-white active:bg-cinnabar-700">
+      <button onClick={() => void save()} className="w-full rounded-xl bg-cinnabar-600 py-3 text-[16px] font-semibold text-white active:bg-cinnabar-700">
         保存
       </button>
       {initial && (
@@ -275,6 +335,8 @@ export function EntryForm({
   const [minutes, setMinutes] = useState(initial?.minutes ? String(initial.minutes) : '');
   const [feeling, setFeeling] = useState(initial?.feeling ?? '');
   const [quote, setQuote] = useState(initial?.quote ?? '');
+  // 感受/句子默认收起：只记进度时不用面对一堆输入框；编辑已有内容时自动展开
+  const [more, setMore] = useState(Boolean(initial?.feeling || initial?.quote));
 
   async function save() {
     const now = Date.now();
@@ -290,26 +352,8 @@ export function EntryForm({
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     };
+    // 状态联动统一由 db.syncWorkStatus 按全部记录重新推导，这里只存记录本身
     await putEntry(e);
-    // 小联动：有了第一条记录就从「计划中」进入进行状态；书读到总页数、剧看到最后一集自动完成；
-    // 电影通常一次看完，第一条记录即完成。
-    if (work.type === 'book') {
-      if (work.status === 'planned') {
-        await putWork({ ...work, status: 'doing', startDate: work.startDate ?? e.date });
-      } else if (work.totalPages && e.page && e.page >= work.totalPages && work.status !== 'done') {
-        await putWork({ ...work, status: 'done', finishDate: e.date });
-      }
-    } else if (work.type === 'tv') {
-      if (work.totalEpisodes && e.episode && e.episode >= work.totalEpisodes) {
-        if (work.status !== 'done') await putWork({ ...work, status: 'done', finishDate: e.date });
-      } else if (work.status === 'planned') {
-        await putWork({ ...work, status: 'doing', startDate: work.startDate ?? e.date });
-      }
-    } else if (work.type === 'movie' && work.status === 'planned') {
-      await putWork({ ...work, status: 'done', finishDate: work.finishDate ?? e.date });
-    } else if (work.type === 'other' && work.status === 'planned') {
-      await putWork({ ...work, status: 'doing', startDate: work.startDate ?? e.date });
-    }
     onClose();
   }
 
@@ -341,12 +385,20 @@ export function EntryForm({
           <input aria-label="时长分钟" className={inputCls} inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} placeholder="例如 40" />
         </Field>
       )}
-      <Field label="当时的想法和感受">
-        <textarea aria-label="想法和感受" className={`${inputCls} min-h-[96px]`} value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="这一段/这一集写了什么、你想到了什么，都可以记下来" />
-      </Field>
-      <Field label={work.type === 'book' ? '收藏的句子' : '喜欢的台词 / 片段'}>
-        <textarea aria-label="收藏的句子" className={`${inputCls} min-h-[64px]`} value={quote} onChange={(e) => setQuote(e.target.value)} placeholder={work.type === 'book' ? '抄一句打动你的话' : '一句台词，或一个片段的样子'} />
-      </Field>
+      {more ? (
+        <>
+          <Field label="当时的想法和感受（可不填）">
+            <textarea aria-label="想法和感受" className={`${inputCls} min-h-[96px]`} value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="这一段/这一集写了什么、你想到了什么，都可以记下来" />
+          </Field>
+          <Field label={work.type === 'book' ? '收藏的句子（可不填）' : '喜欢的台词 / 片段（可不填）'}>
+            <textarea aria-label="收藏的句子" className={`${inputCls} min-h-[64px]`} value={quote} onChange={(e) => setQuote(e.target.value)} placeholder={work.type === 'book' ? '抄一句打动你的话' : '一句台词，或一个片段的样子'} />
+          </Field>
+        </>
+      ) : (
+        <button onClick={() => setMore(true)} className="mb-4 w-full rounded-xl border border-dashed border-ink/15 py-2.5 text-[14px] text-ink/55">
+          ＋ 写点感受 / 收藏一句话
+        </button>
+      )}
       <button onClick={save} className="w-full rounded-xl bg-cinnabar-600 py-3 text-[16px] font-semibold text-white active:bg-cinnabar-700">
         保存记录
       </button>

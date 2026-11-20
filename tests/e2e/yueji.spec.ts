@@ -27,13 +27,14 @@ test('阅迹全流程', async ({ page }) => {
   await page.getByLabel('记录日期').fill('2026-11-19');
   await page.getByLabel('读到第几页').fill('80');
   await page.getByLabel('时长分钟').fill('40');
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
   await page.getByLabel('想法和感受').fill('福贵把苦日子过成了平常日子。');
   await page.getByLabel('收藏的句子').fill('人是为了活着本身而活着的');
   await page.getByRole('button', { name: '保存记录' }).click();
 
   // 进度 = 80/200 = 40%
   await expect(page.getByText('40%')).toBeVisible();
-  await expect(page.getByText('福贵把苦日子过成了平常日子。')).toBeVisible();
+  await expect(page.getByText('福贵把苦日子过成了平常日子。').first()).toBeVisible();
   await expect(page.getByText('「人是为了活着本身而活着的」').first()).toBeVisible();
 
   // ---- 刷新后数据仍在 ----
@@ -41,11 +42,12 @@ test('阅迹全流程', async ({ page }) => {
   await page.getByRole('button', { name: '书架' }).click();
   await page.getByText('《活着》').first().click();
   await expect(page.getByText('40%')).toBeVisible();
-  await expect(page.getByText('福贵把苦日子过成了平常日子。')).toBeVisible();
+  await expect(page.getByText('福贵把苦日子过成了平常日子。').first()).toBeVisible();
 
   // ---- 再记一次，读到最后一页 → 自动读完 ----
   await page.getByRole('button', { name: '＋ 记一次阅读' }).click();
   await page.getByLabel('读到第几页').fill('200');
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
   await page.getByLabel('想法和感受').fill('读完了，后劲很大。');
   await page.getByRole('button', { name: '保存记录' }).click();
   await expect(page.getByText('100%')).toBeVisible();
@@ -63,11 +65,12 @@ test('阅迹全流程', async ({ page }) => {
 
   await page.getByText('《重庆森林》').first().click();
   await page.getByRole('button', { name: '＋ 记一次观影' }).click();
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
   await page.getByLabel('想法和感受').fill('像一场潮湿的梦。');
   await page.getByLabel('收藏的句子').fill('我们最接近的时候，距离只有0.01公分');
   await page.getByRole('button', { name: '保存记录' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByText('像一场潮湿的梦。')).toBeVisible();
+  await expect(page.getByText('像一场潮湿的梦。').first()).toBeVisible();
 
   // ---- 编辑电影：改成印象深刻 ----
   await page.getByRole('button', { name: '编辑作品' }).click();
@@ -77,9 +80,9 @@ test('阅迹全流程', async ({ page }) => {
 
   // ---- 年度回顾：2026 年 1 本读完 + 1 部看过 ----
   await page.getByRole('button', { name: '返回' }).click();
-  await page.getByRole('button', { name: '年度' }).click();
+  await page.getByRole('button', { name: '回顾' }).click();
   await expect(page.getByText('本读完的书')).toBeVisible();
-  await expect(page.getByText('部看过的电影')).toBeVisible();
+  await expect(page.getByText('部看完的电影')).toBeVisible();
   await expect(page.getByText('《重庆森林》').first()).toBeVisible(); // 印象深刻区
 
   // ---- 导出备份并校验内容 ----
@@ -139,6 +142,7 @@ test('电视剧与封面', async ({ page }) => {
   // 记一次追剧：看到第 7 集
   await page.getByRole('button', { name: '＋ 记一次追剧' }).click();
   await page.getByLabel('看到第几集').fill('7');
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
   await page.getByLabel('想法和感受').fill('王响的执念看得人心酸。');
   await page.getByLabel('收藏的句子').fill('往前看，别回头');
   await page.getByRole('button', { name: '保存记录' }).click();
@@ -149,6 +153,7 @@ test('电视剧与封面', async ({ page }) => {
   // 看到最后一集 → 自动看完
   await page.getByRole('button', { name: '＋ 记一次追剧' }).click();
   await page.getByLabel('看到第几集').fill('12');
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
   await page.getByLabel('想法和感受').fill('看完了，秋天真短。');
   await page.getByRole('button', { name: '保存记录' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -164,9 +169,61 @@ test('电视剧与封面', async ({ page }) => {
 
   // 年度回顾里有这部剧
   await page.getByRole('button', { name: '返回' }).click();
-  await page.getByRole('button', { name: '年度' }).click();
-  await expect(page.getByText('部追过的剧')).toBeVisible();
+  await page.getByRole('button', { name: '回顾' }).click();
+  await expect(page.getByText('部看完的剧')).toBeVisible();
   await expect(page.getByText('《漫长的季节》').first()).toBeVisible();
+});
+
+// v0.4.0 P0 回归：只加作品、直接标看完（一部剧一部记录都没记）→ 首页「最近观看」也必须出现。
+test('最近观看包含无记录的已看完作品', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: '添加第一部作品' }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: '📺 剧' }).click();
+  await page.getByLabel('作品名').fill('太阳的后裔');
+  await page.getByLabel('创作者').fill('李应福');
+  await page.getByLabel('总集数').fill('16');
+  await page.getByRole('radio', { name: '看完' }).click();
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+
+  // 回到首页：最近观看里能看到这部剧
+  await page.getByRole('button', { name: '首页' }).click();
+  await expect(page.getByText('最近观看')).toBeVisible();
+  await expect(page.getByText('《太阳的后裔》').first()).toBeVisible();
+});
+
+// v0.4.0 状态重算：读满自动读完；删掉达标记录后状态与进度一起退回。
+test('删除达标记录后状态退回', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: '添加第一部作品' }).click();
+  await page.getByLabel('作品名').fill('短书');
+  await page.getByLabel('创作者').fill('某作者');
+  await page.getByLabel('总页数').fill('100');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+
+  await page.getByRole('button', { name: '书架' }).click();
+  await page.getByText('《短书》').first().click();
+  await page.getByRole('button', { name: '＋ 记一次阅读' }).click();
+  await page.getByLabel('读到第几页').fill('50');
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
+  await page.getByLabel('想法和感受').fill('读了一半。');
+  await page.getByRole('button', { name: '保存记录' }).click();
+  await expect(page.getByText('50%')).toBeVisible();
+
+  await page.getByRole('button', { name: '＋ 记一次阅读' }).click();
+  await page.getByLabel('读到第几页').fill('100');
+  await page.getByRole('button', { name: '＋ 写点感受 / 收藏一句话' }).click();
+  await page.getByLabel('想法和感受').fill('读完了。');
+  await page.getByRole('button', { name: '保存记录' }).click();
+  await expect(page.getByText('100%')).toBeVisible();
+  await expect(page.getByText('读完', { exact: true }).first()).toBeVisible();
+
+  // 删掉「读完了」那条 → 回到在读、进度 50%
+  await page.getByText('读完了。').click();
+  await page.getByRole('button', { name: '删除这条记录' }).click();
+  await page.getByRole('button', { name: '再点一次确认删除' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByText('50%')).toBeVisible();
+  await expect(page.getByText('在读', { exact: true }).first()).toBeVisible();
 });
 
 // 恢复流程：导出 → 删除全部数据 → 用备份文件导入 → 数据回来。

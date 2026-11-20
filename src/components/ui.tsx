@@ -103,21 +103,21 @@ export function Segmented<T extends string>({
 }
 
 export function ProgressBar({ value, tone = 'book' }: { value: number; tone?: 'book' | 'movie' | 'tv' }) {
-  const color = tone === 'book' ? 'bg-cinnabar-500' : tone === 'tv' ? 'bg-pine-500' : 'bg-indigo2-500';
+  const color = tone === 'book' ? 'bg-cinnabar-500' : tone === 'tv' ? 'bg-iris-500' : 'bg-indigo2-500';
   return (
     <div className="h-[6px] w-full overflow-hidden rounded-full bg-ink/[0.08]">
       <div
-        className={`h-full rounded-full ${color}`}
+        className={`progress-fill h-full rounded-full ${color}`}
         style={{ width: `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%` }}
       />
     </div>
   );
 }
 
-/** 无封面时的占位色：按类型给一个稳定的柔和色 */
+/** 无封面时的占位色：书暖（朱砂）、剧蓝紫、电影冷蓝、其他灰褐，低饱和 */
 const COVER_HUES: Record<Work['type'], string> = {
   book: 'linear-gradient(150deg,#b6502f,#8c331b)',
-  tv: 'linear-gradient(150deg,#35856c,#1f5c4a)',
+  tv: 'linear-gradient(150deg,#7a76cf,#4c49a0)',
   movie: 'linear-gradient(150deg,#4a6ca8,#2f4a7d)',
   other: 'linear-gradient(150deg,#7a6a53,#57492f)',
 };
@@ -126,7 +126,7 @@ const COVER_HUES: Record<Work['type'], string> = {
  * 作品封面：有图显示图；没图显示一本「素封面」——类型色打底、宋体标题、
  * 让书架不再只有一行行文字。variant: thumb 小图 / detail 详情大图。
  */
-export function Cover({ work, variant = 'thumb' }: { work: Work; variant?: 'thumb' | 'detail' }) {
+export function Cover({ work, variant = 'thumb' }: { work: Work; variant?: 'thumb' | 'detail' | 'grid' }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!work.cover) {
@@ -140,11 +140,13 @@ export function Cover({ work, variant = 'thumb' }: { work: Work; variant?: 'thum
 
   const size =
     variant === 'detail'
-      ? 'h-[168px] w-[126px] rounded-[10px]'
-      : 'h-[68px] w-[50px] shrink-0 rounded-[6px]';
+      ? 'h-[184px] w-[138px] rounded-[12px]'
+      : variant === 'grid'
+        ? 'aspect-[2/3] w-full rounded-[10px]'
+        : 'h-[68px] w-[50px] shrink-0 rounded-[6px]';
 
   if (url) {
-    return <img src={url} alt={`《${work.title}》封面`} className={`${size} border border-ink/10 object-cover shadow-sm`} />;
+    return <img src={url} alt={`《${work.title}》封面`} loading="lazy" className={`cover-img ${size} border border-ink/10 object-cover shadow-sm`} />;
   }
   return (
     <div
@@ -152,23 +154,23 @@ export function Cover({ work, variant = 'thumb' }: { work: Work; variant?: 'thum
       className={`${size} flex flex-col items-center justify-between border border-black/10 shadow-sm`}
       style={{ background: COVER_HUES[work.type] }}
     >
-      <span className={`${variant === 'detail' ? 'mt-3 text-[15px]' : 'mt-1.5 text-[10px]'} text-white/85`}>
+      <span className={`${variant === 'thumb' ? 'mt-1.5 text-[10px]' : 'mt-3 text-[15px]'} text-white/85`}>
         {TYPE_ICON[work.type]}
       </span>
       <span
         className={`px-1.5 text-center font-serif font-semibold leading-tight text-white ${
-          variant === 'detail' ? 'text-[17px]' : 'text-[10.5px]'
+          variant === 'thumb' ? 'text-[10.5px]' : 'text-[16px]'
         }`}
         style={{
           display: '-webkit-box',
-          WebkitLineClamp: variant === 'detail' ? 4 : 3,
+          WebkitLineClamp: variant === 'thumb' ? 3 : 4,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
         }}
       >
         {work.title}
       </span>
-      <span className={`${variant === 'detail' ? 'mb-3 text-[11px]' : 'mb-1.5 text-[8px]'} max-w-full truncate px-1 text-white/70`}>
+      <span className={`${variant === 'thumb' ? 'mb-1.5 text-[8px]' : 'mb-3 text-[11px]'} max-w-full truncate px-1 text-white/70`}>
         {work.creator}
       </span>
     </div>

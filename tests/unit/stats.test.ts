@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookProgress, currentEpisode, currentPage, overview, tvProgress, yearReview } from '../../src/lib/stats';
+import { bookProgress, currentEpisode, currentPage, entryMinutes, overview, recentWatching, tvProgress, yearReview } from '../../src/lib/stats';
 import type { Entry, Work } from '../../src/lib/types';
 
 const book: Work = {
@@ -22,8 +22,12 @@ describe('bookProgress / currentPage', () => {
     expect(currentPage(book, entries)).toBe(120);
     expect(bookProgress(book, entries)).toBeCloseTo(0.6);
   });
-  it('读完的书进度恒为 1', () => {
-    expect(bookProgress({ ...book, status: 'done' }, entries)).toBe(1);
+  it('v0.4.0：完成状态不再篡改进度——标了读完也按真实页码显示', () => {
+    expect(bookProgress({ ...book, status: 'done' }, entries)).toBeCloseTo(0.6);
+  });
+  it('没有任何页码记录时进度为 null（不硬算）', () => {
+    expect(bookProgress(book, [])).toBeNull();
+    expect(bookProgress(book, [{ ...entries[0], page: undefined }])).toBeNull();
   });
   it('没有总页数时进度为 null（不硬算）', () => {
     expect(bookProgress({ ...book, totalPages: undefined }, entries)).toBeNull();
@@ -33,33 +37,71 @@ describe('bookProgress / currentPage', () => {
   });
 });
 
-describe('yearReview', () => {
-  it('2026：电影靠记录计入，书未读完不计读完数', () => {
+describe('entryMinutes', () => {
+  it('填了分钟用分钟；电影没填按片长兜底；书没填算 0', () => {
+    expect(entryMinutes(movie, entries[2])).toBe(102);
+    expect(entryMinutes(movie, { ...entries[2], minutes: undefined })).toBe(102);
+    expect(entryMinutes(book, { ...entries[0], minutes: undefined })).toBe(0);
+  });
+});
+
+describe('yearReview（v0.4.0 活动/完成双口径）', () => {
+  it('2026：活动按记录日期，完成按完成日期且须为已完成状态', () => {
     const r = yearReview(2026, [book, movie], entries);
-    expect(r.booksFinished).toHaveLength(0);
-    expect(r.moviesWatched.map((w) => w.id)).toEqual(['m1']);
+    expect(r.finishedBooks).toHaveLength(0); // 书还在读
+    expect(r.finishedMovies.map((w) => w.id)).toEqual(['m1']);
+    expect(r.reading.count).toBe(2);
+    expect(r.reading.minutes).toBe(75);
+    expect(r.watching.count).toBe(1);
+    expect(r.watching.minutes).toBe(102);
+    expect(r.other.count).toBe(0);
     expect(r.entriesCount).toBe(3);
     expect(r.activeDays).toBe(3);
     expect(r.totalMinutes).toBe(177);
     expect(r.quotesCount).toBe(2);
     expect(r.monthlyEntries[10]).toBe(2); // 11 月两条
     expect(r.monthlyEntries[9]).toBe(1); // 10 月一条
-    // 在读但标了印象深刻、且今年有记录 → 也进印象深刻
     expect(r.highlights.map((w) => w.id)).toEqual(['b1']);
   });
-  it('读完日期落在该年的书才计入', () => {
+  it('读完日期落在该年、且状态为已完成的书才计入完成', () => {
     const done = { ...book, status: 'done' as const, finishDate: '2026-11-15' };
     const r = yearReview(2026, [done, movie], entries);
-    expect(r.booksFinished.map((w) => w.id)).toEqual(['b1']);
-    expect(r.highlights.map((w) => w.id)).toEqual(['b1']);
-    expect(yearReview(2025, [done, movie], entries).booksFinished).toHaveLength(0);
+    expect(r.finishedBooks.map((w) => w.id)).toEqual(['b1']);
+    expect(yearReview(2025, [done, movie], entries).finishedBooks).toHaveLength(0);
+    // 有完成日期但状态被改回在读 → 不算完成（旧口径会误算）
+    const backToDoing = { ...book, status: 'doing' as const, finishDate: '2026-11-15' };
+    expect(yearReview(2026, [backToDoing], entries).finishedBooks).toHaveLength(0);
+  });
+  it('跨年追剧：活动算在记录年，完成只算在完成年', () => {
+    const doneTv: Work = { ...tv, status: 'done', finishDate: '2026-11-21' };
+    const r26 = yearReview(2026, [doneTv], tvEntries);
+    expect(r26.watching.count).toBe(2);
+    expect(r26.finishedTvs.map((w) => w.id)).toEqual(['t1']);
+    const r25 = yearReview(2025, [doneTv], tvEntries);
+    expect(r25.watching.count).toBe(0);
+    expect(r25.finishedTvs).toHaveLength(0);
+  });
+  it('其他类型活动按细分类统计', () => {
+    const album: Work = {
+      id: 'o1', type: 'other', title: '某张专辑', creator: '某乐队', category: '音乐', subcategory: '音乐',
+      status: 'doing', highlight: false, createdAt: 1, updatedAt: 1,
+    };
+    const oe: Entry[] = [
+      { id: 'oe1', workId: 'o1', date: '2026-03-01', minutes: 45, feeling: '好听', quote: '', createdAt: 1, updatedAt: 1 },
+    ];
+    const r = yearReview(2026, [album], oe);
+    expect(r.other.count).toBe(1);
+    expect(r.other.bySubcategory).toEqual([{ name: '音乐', count: 1 }]);
   });
 });
 
 describe('overview', () => {
-  it('累计计数', () => {
+  it('区分作品数与活动记录数', () => {
     const o = overview([book, movie], entries);
-    expect(o).toEqual({ books: 1, tvs: 0, movies: 1, others: 0, finished: 1, entries: 4, quotes: 2 });
+    expect(o).toEqual({
+      books: 1, tvs: 0, movies: 1, others: 0, totalWorks: 2, finished: 1,
+      entries: 4, readingEntries: 3, watchingEntries: 1, quotes: 2,
+    });
   });
 });
 
@@ -77,13 +119,29 @@ describe('tvProgress / currentEpisode', () => {
     expect(currentEpisode(tv, tvEntries)).toBe(7);
     expect(tvProgress(tv, tvEntries)).toBeCloseTo(7 / 12);
   });
-  it('看完的剧进度恒为 1；无总集数不硬算', () => {
-    expect(tvProgress({ ...tv, status: 'done' }, tvEntries)).toBe(1);
+  it('v0.4.0：看完状态也不篡改进度；无总集数不硬算', () => {
+    expect(tvProgress({ ...tv, status: 'done' }, tvEntries)).toBeCloseTo(7 / 12);
     expect(tvProgress({ ...tv, totalEpisodes: undefined }, tvEntries)).toBeNull();
   });
-  it('年度回顾：有记录的剧计入追过的剧', () => {
-    const r = yearReview(2026, [tv], tvEntries);
-    expect(r.tvWatched.map((w) => w.id)).toEqual(['t1']);
-    expect(yearReview(2025, [tv], tvEntries).tvWatched).toHaveLength(0);
+});
+
+describe('recentWatching（P0 修复）', () => {
+  it('有追剧记录的剧进列表，取最新一条', () => {
+    const r = recentWatching([tv], tvEntries);
+    expect(r).toHaveLength(1);
+    expect(r[0].work.id).toBe('t1');
+    expect(r[0].date).toBe('2026-11-21');
+    expect(r[0].entry?.id).toBe('te2');
+  });
+  it('没有记录、只标了看完的剧也进列表（按完成日期）', () => {
+    const doneTv: Work = { ...tv, status: 'done', finishDate: '2026-11-21' };
+    const r = recentWatching([doneTv], []);
+    expect(r).toHaveLength(1);
+    expect(r[0].date).toBe('2026-11-21');
+    expect(r[0].entry).toBeUndefined();
+  });
+  it('书不进最近观看；多部作品按日期倒序', () => {
+    const r = recentWatching([book, movie, tv], [...entries, ...tvEntries]);
+    expect(r.map((x) => x.work.id)).toEqual(['t1', 'm1']);
   });
 });

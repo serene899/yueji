@@ -44,7 +44,9 @@ function validWork(v: unknown): v is BackupWork {
     typeof v.title === 'string' &&
     typeof v.creator === 'string' &&
     typeof v.category === 'string' &&
-    (v.status === 'planned' || v.status === 'doing' || v.status === 'done') &&
+    (v.status === 'planned' || v.status === 'doing' || v.status === 'done' || v.status === 'paused' || v.status === 'dropped') &&
+    (v.subcategory === undefined || typeof v.subcategory === 'string') &&
+    (v.statusLocked === undefined || typeof v.statusLocked === 'boolean') &&
     typeof v.highlight === 'boolean' &&
     typeof v.createdAt === 'number' &&
     typeof v.updatedAt === 'number' &&
