@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookProgress, currentPage, overview, yearReview } from '../../src/lib/stats';
+import { bookProgress, currentEpisode, currentPage, overview, tvProgress, yearReview } from '../../src/lib/stats';
 import type { Entry, Work } from '../../src/lib/types';
 
 const book: Work = {
@@ -59,6 +59,31 @@ describe('yearReview', () => {
 describe('overview', () => {
   it('累计计数', () => {
     const o = overview([book, movie], entries);
-    expect(o).toEqual({ books: 1, movies: 1, finished: 1, entries: 4, quotes: 2 });
+    expect(o).toEqual({ books: 1, tvs: 0, movies: 1, others: 0, finished: 1, entries: 4, quotes: 2 });
+  });
+});
+
+const tv: Work = {
+  id: 't1', type: 'tv', title: '漫长的季节', creator: '辛爽', category: '悬疑', year: 2023,
+  totalEpisodes: 12, status: 'doing', startDate: '2026-11-20', highlight: false, createdAt: 1, updatedAt: 1,
+};
+const tvEntries: Entry[] = [
+  { id: 'te1', workId: 't1', date: '2026-11-20', episode: 3, minutes: 60, feeling: '节奏慢但有味', quote: '', createdAt: 1, updatedAt: 1 },
+  { id: 'te2', workId: 't1', date: '2026-11-21', episode: 7, minutes: 120, feeling: '', quote: '往前看，别回头', createdAt: 2, updatedAt: 2 },
+];
+
+describe('tvProgress / currentEpisode', () => {
+  it('进度取最大集数 / 总集数', () => {
+    expect(currentEpisode(tv, tvEntries)).toBe(7);
+    expect(tvProgress(tv, tvEntries)).toBeCloseTo(7 / 12);
+  });
+  it('看完的剧进度恒为 1；无总集数不硬算', () => {
+    expect(tvProgress({ ...tv, status: 'done' }, tvEntries)).toBe(1);
+    expect(tvProgress({ ...tv, totalEpisodes: undefined }, tvEntries)).toBeNull();
+  });
+  it('年度回顾：有记录的剧计入追过的剧', () => {
+    const r = yearReview(2026, [tv], tvEntries);
+    expect(r.tvWatched.map((w) => w.id)).toEqual(['t1']);
+    expect(yearReview(2025, [tv], tvEntries).tvWatched).toHaveLength(0);
   });
 });

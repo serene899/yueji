@@ -1,7 +1,7 @@
-import type { Entry, Work } from '../lib/types';
-import { bookProgress, currentPage, entriesOf, overview } from '../lib/stats';
+import { TYPE_ICON, type Entry, type Work } from '../lib/types';
+import { bookProgress, currentEpisode, currentPage, overview, tvProgress } from '../lib/stats';
 import { fmtDate, fmtMinutes } from '../lib/time';
-import { Card, Empty, ProgressBar, SectionTitle } from '../components/ui';
+import { Card, Cover, Empty, ProgressBar, SectionTitle } from '../components/ui';
 
 export function Home({
   works,
@@ -16,8 +16,12 @@ export function Home({
 }) {
   const ov = overview(works, entries);
   const reading = works.filter((w) => w.type === 'book' && w.status === 'doing');
-  const recentMovies = entries
-    .filter((e) => works.find((w) => w.id === e.workId)?.type === 'movie')
+  const watching = works.filter((w) => w.type === 'tv' && w.status === 'doing');
+  const recentViewing = entries
+    .filter((e) => {
+      const t = works.find((w) => w.id === e.workId)?.type;
+      return t === 'movie' || t === 'tv';
+    })
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 3);
   const recent = [...entries].sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1)).slice(0, 5);
@@ -42,16 +46,17 @@ export function Home({
   return (
     <div className="px-4">
       <SectionTitle>概览</SectionTitle>
-      <Card className="grid grid-cols-4 px-2 py-4 text-center">
+      <Card className="grid grid-cols-5 px-1 py-4 text-center">
         {[
           [ov.books, '本书'],
+          [ov.tvs, '部剧'],
           [ov.movies, '部电影'],
           [ov.entries, '条记录'],
           [ov.quotes, '句收藏'],
         ].map(([n, label]) => (
           <div key={label}>
-            <div className="font-serif text-[22px] font-bold">{n}</div>
-            <div className="mt-0.5 text-[12px] text-ink/50">{label}</div>
+            <div className="font-serif text-[20px] font-bold">{n}</div>
+            <div className="mt-0.5 text-[11.5px] text-ink/50">{label}</div>
           </div>
         ))}
       </Card>
@@ -67,41 +72,84 @@ export function Home({
             const p = bookProgress(w, entries);
             const page = currentPage(w, entries);
             return (
-              <button key={w.id} onClick={() => onOpenWork(w.id)} className="card block w-full px-4 py-3.5 text-left">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-serif text-[16px] font-semibold">《{w.title}》</span>
-                  {p !== null && <span className="text-[13px] font-medium text-cinnabar-600">{Math.round(p * 100)}%</span>}
-                </div>
-                <div className="mt-0.5 text-[13px] text-ink/50">
-                  {w.creator}
-                  {page > 0 && ` · 读到 ${page} 页`}
-                  {w.totalPages ? ` / ${w.totalPages} 页` : ''}
-                </div>
-                {p !== null && (
-                  <div className="mt-2.5">
-                    <ProgressBar value={p} />
+              <button key={w.id} onClick={() => onOpenWork(w.id)} className="card block w-full px-3.5 py-3 text-left">
+                <div className="flex gap-3">
+                  <Cover work={w} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="font-serif text-[16px] font-semibold">《{w.title}》</span>
+                      {p !== null && <span className="text-[13px] font-medium text-cinnabar-600">{Math.round(p * 100)}%</span>}
+                    </div>
+                    <div className="mt-0.5 text-[13px] text-ink/50">
+                      {w.creator}
+                      {page > 0 && ` · 读到 ${page} 页`}
+                      {w.totalPages ? ` / ${w.totalPages} 页` : ''}
+                    </div>
+                    {p !== null && (
+                      <div className="mt-2.5">
+                        <ProgressBar value={p} />
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </button>
             );
           })}
         </div>
       )}
 
+      {watching.length > 0 && (
+        <>
+          <SectionTitle>正在追剧</SectionTitle>
+          <div className="space-y-2.5">
+            {watching.map((w) => {
+              const p = tvProgress(w, entries);
+              const ep = currentEpisode(w, entries);
+              return (
+                <button key={w.id} onClick={() => onOpenWork(w.id)} className="card block w-full px-3.5 py-3 text-left">
+                  <div className="flex gap-3">
+                    <Cover work={w} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="font-serif text-[16px] font-semibold">《{w.title}》</span>
+                        {p !== null && <span className="text-[13px] font-medium text-pine-600">{Math.round(p * 100)}%</span>}
+                      </div>
+                      <div className="mt-0.5 text-[13px] text-ink/50">
+                        {w.creator}
+                        {ep > 0 && ` · 看到第 ${ep} 集`}
+                        {w.totalEpisodes ? ` / ${w.totalEpisodes} 集` : ''}
+                      </div>
+                      {p !== null && (
+                        <div className="mt-2.5">
+                          <ProgressBar value={p} tone="tv" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <SectionTitle>最近观影</SectionTitle>
-      {recentMovies.length === 0 ? (
+      {recentViewing.length === 0 ? (
         <Card>
           <Empty text="还没有观影记录" />
         </Card>
       ) : (
         <Card className="divide-y divide-ink/[0.05]">
-          {recentMovies.map((e) => {
+          {recentViewing.map((e) => {
             const w = byId.get(e.workId);
             if (!w) return null;
             return (
               <button key={e.id} onClick={() => onOpenWork(w.id)} className="block w-full px-4 py-3 text-left">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-serif text-[15px] font-semibold">《{w.title}》</span>
+                  <span className="font-serif text-[15px] font-semibold">
+                    {TYPE_ICON[w.type]} 《{w.title}》
+                    {e.episode ? <span className="font-sans text-[12.5px] font-normal text-ink/50"> 第 {e.episode} 集</span> : null}
+                  </span>
                   <span className="shrink-0 text-[12px] text-ink/45">{fmtDate(e.date)}</span>
                 </div>
                 {e.feeling && <p className="mt-1 line-clamp-2 text-[14px] leading-relaxed text-ink/65">{e.feeling}</p>}
@@ -117,14 +165,13 @@ export function Home({
         {recent.map((e) => {
           const w = byId.get(e.workId);
           if (!w) return null;
-          const list = entriesOf(w.id, entries);
-          void list;
           return (
             <button key={e.id} onClick={() => onOpenWork(w.id)} className="block w-full px-4 py-3 text-left">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[14px] font-medium">
-                  {w.type === 'book' ? '📖' : '🎬'} 《{w.title}》
+                  {TYPE_ICON[w.type]} 《{w.title}》
                   {e.page ? <span className="text-ink/50"> · 第 {e.page} 页</span> : null}
+                  {e.episode ? <span className="text-ink/50"> · 第 {e.episode} 集</span> : null}
                   {e.minutes ? <span className="text-ink/50"> · {fmtMinutes(e.minutes)}</span> : null}
                 </span>
                 <span className="shrink-0 text-[12px] text-ink/45">{fmtDate(e.date)}</span>

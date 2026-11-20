@@ -26,7 +26,7 @@ test('阅迹全流程', async ({ page }) => {
   await page.getByRole('button', { name: '＋ 记一次阅读' }).click();
   await page.getByLabel('记录日期').fill('2026-11-19');
   await page.getByLabel('读到第几页').fill('80');
-  await page.getByLabel('阅读时长').fill('40');
+  await page.getByLabel('时长分钟').fill('40');
   await page.getByLabel('想法和感受').fill('福贵把苦日子过成了平常日子。');
   await page.getByLabel('收藏的句子').fill('人是为了活着本身而活着的');
   await page.getByRole('button', { name: '保存记录' }).click();
@@ -109,6 +109,64 @@ test('阅迹全流程', async ({ page }) => {
   await page.getByRole('button', { name: '书架' }).click();
   await expect(page.getByText('《重庆森林》')).toHaveCount(0);
   await expect(page.getByText('《活着》').first()).toBeVisible();
+});
+
+// v0.3.0：电视剧（集数进度、看到最后一集自动看完）+ 封面上传并持久化。
+test('电视剧与封面', async ({ page }) => {
+  // 一张标准 1x1 PNG 作为海报（测试用小图，产品会压缩成 JPEG 存储）
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page.goto('./');
+  await page.getByRole('button', { name: '添加第一部作品' }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: '📺 剧' }).click();
+  await page.getByLabel('作品名').fill('漫长的季节');
+  await page.getByLabel('创作者').fill('辛爽');
+  await page.getByRole('button', { name: '悬疑', exact: true }).click();
+  await page.getByLabel('总集数').fill('12');
+  await page.getByRole('radio', { name: '在看' }).click();
+  await page.getByRole('dialog').locator('input[type="file"]').setInputFiles({ name: 'poster.png', mimeType: 'image/png', buffer: png });
+  // 表单里立刻能预览封面
+  await expect(page.getByRole('dialog').getByAltText('《漫长的季节》封面')).toBeVisible();
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+
+  await page.getByRole('button', { name: '书架' }).click();
+  await page.getByText('《漫长的季节》').first().click();
+  // 详情页有封面大图
+  await expect(page.getByAltText('《漫长的季节》封面')).toBeVisible();
+
+  // 记一次追剧：看到第 7 集
+  await page.getByRole('button', { name: '＋ 记一次追剧' }).click();
+  await page.getByLabel('看到第几集').fill('7');
+  await page.getByLabel('想法和感受').fill('王响的执念看得人心酸。');
+  await page.getByLabel('收藏的句子').fill('往前看，别回头');
+  await page.getByRole('button', { name: '保存记录' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByText('58%')).toBeVisible();
+  await expect(page.getByText('看到 7 / 12 集')).toBeVisible();
+
+  // 看到最后一集 → 自动看完
+  await page.getByRole('button', { name: '＋ 记一次追剧' }).click();
+  await page.getByLabel('看到第几集').fill('12');
+  await page.getByLabel('想法和感受').fill('看完了，秋天真短。');
+  await page.getByRole('button', { name: '保存记录' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByText('100%')).toBeVisible();
+  await expect(page.getByText('看完', { exact: true }).first()).toBeVisible();
+
+  // 刷新后封面与进度都还在
+  await page.reload();
+  await page.getByRole('button', { name: '书架' }).click();
+  await page.getByText('《漫长的季节》').first().click();
+  await expect(page.getByAltText('《漫长的季节》封面')).toBeVisible();
+  await expect(page.getByText('100%')).toBeVisible();
+
+  // 年度回顾里有这部剧
+  await page.getByRole('button', { name: '返回' }).click();
+  await page.getByRole('button', { name: '年度' }).click();
+  await expect(page.getByText('部追过的剧')).toBeVisible();
+  await expect(page.getByText('《漫长的季节》').first()).toBeVisible();
 });
 
 // 恢复流程：导出 → 删除全部数据 → 用备份文件导入 → 数据回来。

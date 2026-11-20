@@ -16,6 +16,20 @@ export function currentPage(work: Work, entries: Entry[]): number {
   return max;
 }
 
+/** 电视剧当前看到第几集：取所有记录里最大的集数 */
+export function currentEpisode(work: Work, entries: Entry[]): number {
+  let max = 0;
+  for (const e of entries) if (e.workId === work.id && e.episode) max = Math.max(max, e.episode);
+  return max;
+}
+
+/** 电视剧进度：看到集数 / 总集数。返回 0–1，无总集数时返回 null。 */
+export function tvProgress(work: Work, entries: Entry[]): number | null {
+  if (work.type !== 'tv' || !work.totalEpisodes) return null;
+  if (work.status === 'done') return 1;
+  return Math.min(1, currentEpisode(work, entries) / work.totalEpisodes);
+}
+
 export function entriesOf(workId: string, entries: Entry[]): Entry[] {
   return entries
     .filter((e) => e.workId === workId)
@@ -26,6 +40,7 @@ export interface YearReview {
   year: number;
   booksFinished: Work[];
   moviesWatched: Work[];
+  tvWatched: Work[];
   entriesCount: number;
   activeDays: number;
   totalMinutes: number;
@@ -49,14 +64,18 @@ export function yearReview(year: number, works: Work[], entries: Entry[]): YearR
     (w) => w.type === 'book' && w.finishDate && yearOf(w.finishDate) === year,
   );
   const movieIds = new Set<string>();
+  const tvIds = new Set<string>();
   for (const e of yearEntries) {
     const w = byId.get(e.workId);
     if (w?.type === 'movie') movieIds.add(w.id);
+    if (w?.type === 'tv') tvIds.add(w.id);
   }
   for (const w of works) {
     if (w.type === 'movie' && w.finishDate && yearOf(w.finishDate) === year) movieIds.add(w.id);
+    if (w.type === 'tv' && w.finishDate && yearOf(w.finishDate) === year) tvIds.add(w.id);
   }
   const moviesWatched = [...movieIds].map((id) => byId.get(id)!).filter(Boolean);
+  const tvWatched = [...tvIds].map((id) => byId.get(id)!).filter(Boolean);
 
   const monthlyEntries = Array.from({ length: 12 }, () => 0);
   const days = new Set<string>();
@@ -83,6 +102,7 @@ export function yearReview(year: number, works: Work[], entries: Entry[]): YearR
     year,
     booksFinished,
     moviesWatched,
+    tvWatched,
     entriesCount: yearEntries.length,
     activeDays: days.size,
     totalMinutes,
@@ -96,7 +116,9 @@ export function yearReview(year: number, works: Work[], entries: Entry[]): YearR
 export function overview(works: Work[], entries: Entry[]) {
   return {
     books: works.filter((w) => w.type === 'book').length,
+    tvs: works.filter((w) => w.type === 'tv').length,
     movies: works.filter((w) => w.type === 'movie').length,
+    others: works.filter((w) => w.type === 'other').length,
     finished: works.filter((w) => w.status === 'done').length,
     entries: entries.length,
     quotes: entries.filter((e) => e.quote.trim()).length,

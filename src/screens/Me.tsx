@@ -102,7 +102,7 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
         )}
         {msg && <p className="text-[14px] leading-relaxed text-ink/70">{msg}</p>}
         <p className="text-[13px] leading-relaxed text-ink/45">
-          换手机、清浏览器之前，先导出一份备份存好；到了新环境打开阅迹，在这里选「从备份文件恢复」就能把档案搬过去。
+          换手机、清浏览器之前，先导出一份备份存好；到了新环境打开阅迹，在这里选「从备份文件恢复」就能把档案搬过去（封面图也在备份里，会一起回来）。
           Safari 有时会清理长期不用的网站数据，建议每个月导出一次。
         </p>
       </Card>
@@ -114,7 +114,7 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
           它不社交、没有点赞和排行，只是安安静静地记下你读过什么、看过什么，
           以及在不同时间里，它们给过你什么样的感受。
         </p>
-        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.2.0 · LIFEOS 项目 05</p>
+        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.3.0 · LIFEOS 项目 05</p>
       </Card>
     </div>
   );

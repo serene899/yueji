@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import type { Entry, Work } from '../lib/types';
-import { bookProgress, currentPage, entriesOf } from '../lib/stats';
+import { statusText, type Entry, type Work } from '../lib/types';
+import { bookProgress, currentEpisode, currentPage, entriesOf, tvProgress } from '../lib/stats';
 import { fmtDate, fmtMinutes } from '../lib/time';
-import { Card, Empty, ProgressBar, SectionTitle } from '../components/ui';
+import { Card, Cover, Empty, ProgressBar, SectionTitle } from '../components/ui';
 import { EntryForm, WorkForm } from '../components/forms';
+
+const VERB: Record<Work['type'], string> = { book: '阅读', tv: '追剧', movie: '观影', other: '记录' };
 
 export function Detail({
   work,
@@ -18,7 +20,9 @@ export function Detail({
   const [editWork, setEditWork] = useState(false);
   const list = entriesOf(work.id, entries);
   const p = bookProgress(work, entries);
+  const tp = tvProgress(work, entries);
   const page = currentPage(work, entries);
+  const ep = currentEpisode(work, entries);
   const quotes = list.filter((e) => e.quote.trim());
   const totalMinutes = list.reduce((s, e) => s + (e.minutes ?? 0), 0);
 
@@ -33,18 +37,22 @@ export function Detail({
         </button>
       </div>
 
-      <div className="text-center">
-        <div className="text-[34px]">{work.type === 'book' ? '📖' : '🎬'}</div>
-        <h1 className="mt-1 font-serif text-[22px] font-bold leading-snug">《{work.title}》</h1>
+      <div className="flex flex-col items-center text-center">
+        <Cover work={work} variant="detail" />
+        <h1 className="mt-3 font-serif text-[22px] font-bold leading-snug">《{work.title}》</h1>
         <p className="mt-1 text-[14px] text-ink/55">
-          {[work.creator, work.category, work.year && `${work.year} 年`, work.type === 'movie' && work.durationMin && `${work.durationMin} 分钟`]
+          {[
+            work.creator,
+            work.category,
+            work.year && `${work.year} 年`,
+            work.type === 'movie' && work.durationMin && `${work.durationMin} 分钟`,
+            work.type === 'tv' && work.totalEpisodes && `共 ${work.totalEpisodes} 集`,
+          ]
             .filter(Boolean)
             .join(' · ')}
         </p>
         <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-[12.5px]">
-          <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">
-            {work.status === 'done' ? (work.type === 'book' ? '读完' : '看完') : work.status === 'doing' ? (work.type === 'book' ? '在读' : '在看') : work.type === 'book' ? '想读' : '想看'}
-          </span>
+          <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">{statusText(work.type, work.status)}</span>
           {work.startDate && <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">{fmtDate(work.startDate)} 开始</span>}
           {work.finishDate && <span className="rounded-full bg-cinnabar-500/10 px-2.5 py-1 text-cinnabar-600">{fmtDate(work.finishDate)} 完成</span>}
           {work.highlight && <span className="rounded-full bg-cinnabar-500/10 px-2.5 py-1 text-cinnabar-600">印象深刻</span>}
@@ -64,11 +72,23 @@ export function Detail({
         </Card>
       )}
 
+      {work.type === 'tv' && tp !== null && (
+        <Card className="mt-4 px-4 py-3.5">
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="text-[14px] text-ink/60">追剧进度</span>
+            <span className="font-serif text-[17px] font-bold text-pine-600">
+              {Math.round(tp * 100)}%<span className="ml-2 text-[13px] font-normal text-ink/50">看到 {ep} / {work.totalEpisodes} 集</span>
+            </span>
+          </div>
+          <ProgressBar value={tp} tone="tv" />
+        </Card>
+      )}
+
       <button
         onClick={() => setEntryForm({ entry: null })}
         className="mt-4 w-full rounded-2xl bg-cinnabar-600 py-3 text-[16px] font-semibold text-white active:bg-cinnabar-700"
       >
-        {work.type === 'book' ? '＋ 记一次阅读' : '＋ 记一次观影'}
+        ＋ 记一次{VERB[work.type]}
       </button>
 
       {quotes.length > 0 && (
@@ -78,14 +98,18 @@ export function Detail({
             {quotes.map((e) => (
               <blockquote key={e.id} className="border-l-2 border-cinnabar-500/60 pl-3">
                 <p className="font-serif text-[15px] italic leading-relaxed">「{e.quote}」</p>
-                <p className="mt-0.5 text-[12px] text-ink/45">{fmtDate(e.date)}{e.page ? ` · 第 ${e.page} 页` : ''}</p>
+                <p className="mt-0.5 text-[12px] text-ink/45">
+                  {fmtDate(e.date)}
+                  {e.page ? ` · 第 ${e.page} 页` : ''}
+                  {e.episode ? ` · 第 ${e.episode} 集` : ''}
+                </p>
               </blockquote>
             ))}
           </Card>
         </>
       )}
 
-      <SectionTitle>{work.type === 'book' ? '阅读历史' : '观影历史'}</SectionTitle>
+      <SectionTitle>{VERB[work.type]}历史</SectionTitle>
       {list.length === 0 ? (
         <Card>
           <Empty text="还没有记录" hint="每一次读、每一次看，都值得留下一笔" />
@@ -98,6 +122,7 @@ export function Detail({
                 <span className="text-[14px] font-medium">
                   {fmtDate(e.date)}
                   {e.page ? <span className="text-ink/50"> · 读到第 {e.page} 页</span> : null}
+                  {e.episode ? <span className="text-ink/50"> · 看到第 {e.episode} 集</span> : null}
                 </span>
                 {e.minutes ? <span className="shrink-0 text-[12.5px] text-ink/45">{fmtMinutes(e.minutes)}</span> : null}
               </div>

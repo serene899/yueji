@@ -1,8 +1,8 @@
-// 阅迹数据模型（v0.1.0）
-// 作品 Work：书或电影本身；记录 Entry：某一次阅读/观影留下的进度、时长、感受与摘抄。
+// 阅迹数据模型（v0.1.0；v0.2.0 增加电视剧/其他类型与封面）
+// 作品 Work：书、电视剧、电影或其他文化作品本身；记录 Entry：某一次阅读/观影留下的进度、时长、感受与摘抄。
 // 同一作品可以有多次记录——不同时间读同一本书，感受会变，这正是阅迹要保存的东西。
 
-export type WorkType = 'book' | 'movie';
+export type WorkType = 'book' | 'tv' | 'movie' | 'other';
 
 /** planned 想读/想看 · doing 在读 · done 读完/看完 */
 export type WorkStatus = 'planned' | 'doing' | 'done';
@@ -21,6 +21,10 @@ export interface Work {
   totalPages?: number;
   /** 电影：片长（分钟） */
   durationMin?: number;
+  /** 电视剧：总集数 */
+  totalEpisodes?: number;
+  /** 封面图（v0.2.0）：压缩后的 JPEG Blob，只存本机；备份时转 base64 随文件走 */
+  cover?: Blob;
   status: WorkStatus;
   /** 开始阅读/（预留）日期 YYYY-MM-DD */
   startDate?: string;
@@ -39,6 +43,8 @@ export interface Entry {
   date: string;
   /** 书：这次读到第几页 */
   page?: number;
+  /** 电视剧：这次看到第几集 */
+  episode?: number;
   /** 这次阅读/观影时长（分钟），可空 */
   minutes?: number;
   /** 当时的想法和感受 */
@@ -57,6 +63,17 @@ export const STATUS_LABEL: Record<WorkStatus, string> = {
 
 export const BOOK_CATEGORIES = ['文学', '小说', '历史', '哲学', '科学', '社会', '心理', '传记', '诗歌', '其他'];
 export const MOVIE_CATEGORIES = ['剧情', '喜剧', '科幻', '纪录片', '动画', '悬疑', '爱情', '动作', '其他'];
+export const TV_CATEGORIES = ['剧情', '都市', '古装', '悬疑', '喜剧', '科幻', '历史', '纪录片', '其他'];
+export const OTHER_CATEGORIES = ['音乐', '播客', '演出', '展览', '游戏', '其他'];
+
+export const TYPE_ICON: Record<WorkType, string> = { book: '📖', tv: '📺', movie: '🎬', other: '✦' };
+
+/** 按作品类型给出状态文案：书 想读/在读/读完；剧与电影 想看/在看/看完；其他用中性说法 */
+export function statusText(type: WorkType, status: WorkStatus): string {
+  if (type === 'book') return status === 'done' ? '读完' : status === 'doing' ? '在读' : '想读';
+  if (type === 'other') return status === 'done' ? '已完成' : status === 'doing' ? '进行中' : '计划中';
+  return status === 'done' ? '看完' : status === 'doing' ? '在看' : '想看';
+}
 
 export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;

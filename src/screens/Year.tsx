@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Entry, Work } from '../lib/types';
+import { TYPE_ICON, type Entry, type Work } from '../lib/types';
 import { yearReview } from '../lib/stats';
 import { fmtMinutes } from '../lib/time';
 import { Card, Empty, SectionTitle } from '../components/ui';
@@ -36,9 +36,9 @@ export function Year({
       <Card className="grid grid-cols-3 gap-y-4 px-2 py-4 text-center">
         {[
           [r.booksFinished.length, '本读完的书'],
+          [r.tvWatched.length, '部追过的剧'],
           [r.moviesWatched.length, '部看过的电影'],
           [r.entriesCount, '条记录'],
-          [r.activeDays, '个有记录的日子'],
           [r.quotesCount, '句收藏'],
           [fmtMinutes(r.totalMinutes) || '0 分钟', '阅读观影时长'],
         ].map(([n, label]) => (
@@ -75,7 +75,7 @@ export function Year({
           {r.highlights.map((w) => (
             <button key={w.id} onClick={() => onOpenWork(w.id)} className="card block w-full px-4 py-3 text-left">
               <span className="font-serif text-[15.5px] font-semibold">
-                {w.type === 'book' ? '📖' : '🎬'} 《{w.title}》
+                {TYPE_ICON[w.type]} 《{w.title}》
               </span>
               <span className="ml-2 text-[13px] text-ink/50">{w.creator}</span>
             </button>
@@ -89,6 +89,19 @@ export function Year({
       ) : (
         <Card className="divide-y divide-ink/[0.05]">
           {r.booksFinished.map((w) => (
+            <button key={w.id} onClick={() => onOpenWork(w.id)} className="block w-full px-4 py-3 text-left font-serif text-[15px]">
+              《{w.title}》<span className="ml-2 font-sans text-[13px] text-ink/50">{w.creator}</span>
+            </button>
+          ))}
+        </Card>
+      )}
+
+      <SectionTitle>这一年追过的剧</SectionTitle>
+      {r.tvWatched.length === 0 ? (
+        <Card><Empty text="暂无" /></Card>
+      ) : (
+        <Card className="divide-y divide-ink/[0.05]">
+          {r.tvWatched.map((w) => (
             <button key={w.id} onClick={() => onOpenWork(w.id)} className="block w-full px-4 py-3 text-left font-serif text-[15px]">
               《{w.title}》<span className="ml-2 font-sans text-[13px] text-ink/50">{w.creator}</span>
             </button>
@@ -111,7 +124,7 @@ export function Year({
 
       <Card className="mt-6 px-4 py-4">
         <p className="font-serif text-[15px] leading-relaxed text-ink/75">
-          {year} 年，你读完了 {r.booksFinished.length} 本书，看了 {r.moviesWatched.length} 部电影，
+          {year} 年，你读完了 {r.booksFinished.length} 本书，追了 {r.tvWatched.length} 部剧，看了 {r.moviesWatched.length} 部电影，
           在 {r.activeDays} 个日子里留下了 {r.entriesCount} 条记录，收藏了 {r.quotesCount} 句话。
           这些就是这一年精神生活的样子。
         </p>
