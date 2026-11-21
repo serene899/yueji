@@ -33,6 +33,12 @@ describe('阅迹 LIFEOS 交换导出', () => {
     for (const r of f.records) expect(r.contentHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('v0.4.3：阅读秒数折算后按日四舍五入为整数分钟', async () => {
+    const f = await buildExchange([work({})], [entry({ minutes: 40, seconds: 30 })]);
+    const reading = f.records.find((r) => r.data.metricKey === 'x-reading-minutes');
+    expect(reading?.data.value).toBe(41);
+  });
+
   it('电影时长不算阅读分钟；无记录时文件为空但合法', async () => {
     const f = await buildExchange([work({ id: 'w2', type: 'movie' })], [entry({ workId: 'w2', minutes: 120 })]);
     expect(f.records.find((r) => r.data.metricKey === 'x-reading-minutes')).toBeUndefined();

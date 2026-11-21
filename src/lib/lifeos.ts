@@ -14,7 +14,7 @@ import { readAll } from './db';
 export const LIFEOS_SOURCE = 'lifeos.yueji' as const;
 export const EXCHANGE_FORMAT = 'lifeos-exchange' as const;
 export const PROTOCOL_VERSION = '0.1.2' as const;
-export const YUEJI_APP_VERSION = '0.4.2';
+export const YUEJI_APP_VERSION = '0.4.3';
 
 function canonicalize(v: unknown): string {
   if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';
@@ -110,7 +110,10 @@ export async function buildExchange(works: Work[], entries: Entry[], now = new D
     if (e.feeling.trim()) a.hasFeeling = true;
     if (e.quote.trim()) a.hasQuote = true;
     const w = workById.get(e.workId);
-    if (w?.type === 'book' && e.minutes && e.minutes > 0) a.readingMinutes += e.minutes;
+    // 时长含秒折算（v0.4.3）：交换口径仍为整数分钟，按日汇总后四舍五入，无秒数据时结果与旧口径完全一致
+    if (w?.type === 'book' && (e.minutes || e.seconds)) {
+      a.readingMinutes += (e.minutes ?? 0) + (e.seconds ?? 0) / 60;
+    }
   }
   for (const w of works) {
     if (w.finishDate) agg(w.finishDate).finished = true;
@@ -121,12 +124,12 @@ export async function buildExchange(works: Work[], entries: Entry[], now = new D
   for (const date of [...byDate.keys()].sort()) {
     const a = byDate.get(date)!;
     const occurredAt = new Date(`${date}T12:00:00+08:00`).toISOString();
-    if (a.readingMinutes > 0) {
+    if (Math.round(a.readingMinutes) > 0) {
       const base = {
         sourceApp: LIFEOS_SOURCE, sourceDeviceId: dev, sourceRecordId: `yueji:${date}:reading`,
         sourceRecordType: 'readingDay', sourceUpdatedAt: stamp, op: 'write' as const, occurredAt, tz,
         layer: 'fact' as const, dimensionHint: 'study' as const, sensitivity: 'sensitive' as const,
-        data: { metricKey: 'x-reading-minutes' as const, value: a.readingMinutes, unit: 'min' as const, attributes: { localDate: date } },
+        data: { metricKey: 'x-reading-minutes' as const, value: Math.round(a.readingMinutes), unit: 'min' as const, attributes: { localDate: date } },
       };
       records.push({ ...base, contentHash: await sha256Hex(canonicalize(base)) });
     }

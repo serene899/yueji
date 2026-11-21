@@ -1,6 +1,6 @@
 import { TYPE_ICON, statusText, type Entry, type Work } from '../lib/types';
 import { bookProgress, currentEpisode, currentPage, overview, recentWatching, tvProgress } from '../lib/stats';
-import { fmtDate, fmtMinutes } from '../lib/time';
+import { fmtDate, fmtDuration } from '../lib/time';
 import { Card, Cover, Empty, ProgressBar, SectionTitle } from '../components/ui';
 
 function greeting(): string {
@@ -183,7 +183,7 @@ export function Home({
                   {TYPE_ICON[w.type]} 《{w.title}》
                   {e.page ? <span className="text-ink/50"> · 第 {e.page} 页</span> : null}
                   {e.episode ? <span className="text-ink/50"> · 第 {e.episode} 集</span> : null}
-                  {e.minutes ? <span className="text-ink/50"> · {fmtMinutes(e.minutes)}</span> : null}
+                  {e.minutes || e.seconds ? <span className="text-ink/50"> · {fmtDuration(e.minutes, e.seconds)}</span> : null}
                 </span>
                 <span className="shrink-0 text-[12px] text-ink/45">{fmtDate(e.date)}</span>
               </div>

@@ -47,6 +47,7 @@ function validWork(v: unknown): v is BackupWork {
     (v.status === 'planned' || v.status === 'doing' || v.status === 'done' || v.status === 'paused' || v.status === 'dropped') &&
     (v.subcategory === undefined || typeof v.subcategory === 'string') &&
     (v.statusLocked === undefined || typeof v.statusLocked === 'boolean') &&
+    (v.durationSec === undefined || typeof v.durationSec === 'number') &&
     typeof v.highlight === 'boolean' &&
     typeof v.createdAt === 'number' &&
     typeof v.updatedAt === 'number' &&
@@ -63,6 +64,7 @@ function validEntry(v: unknown): v is Entry {
     /^\d{4}-\d{2}-\d{2}$/.test(v.date) &&
     typeof v.feeling === 'string' &&
     typeof v.quote === 'string' &&
+    (v.seconds === undefined || typeof v.seconds === 'number') &&
     typeof v.createdAt === 'number' &&
     typeof v.updatedAt === 'number'
   );

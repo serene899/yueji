@@ -30,8 +30,22 @@ export function fmtDate(dateStr?: string): string {
 
 export function fmtMinutes(min?: number): string {
   if (!min) return '';
-  if (min < 60) return `${min} 分钟`;
-  const h = Math.floor(min / 60);
-  const rest = min % 60;
+  const t = Math.round(min); // 含秒折算的小数分钟在汇总展示时取整
+  if (t < 60) return `${t} 分钟`;
+  const h = Math.floor(t / 60);
+  const rest = t % 60;
   return rest ? `${h} 小时 ${rest} 分` : `${h} 小时`;
+}
+
+/**
+ * 单次时长展示（v0.4.3）：记了秒就精确到秒（143 分 16 秒 / 45 秒），
+ * 没记秒沿用 fmtMinutes 的「X 小时 Y 分」口径。
+ */
+export function fmtDuration(minutes?: number, seconds?: number): string {
+  const m = minutes ?? 0;
+  const s = seconds ?? 0;
+  if (!m && !s) return '';
+  if (!s) return fmtMinutes(m);
+  if (!m) return `${s} 秒`;
+  return `${m} 分 ${s} 秒`;
 }

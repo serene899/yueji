@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { statusText, type Entry, type Work } from '../lib/types';
-import { bookProgress, currentEpisode, currentPage, entriesOf, entryMinutes, tvProgress } from '../lib/stats';
-import { fmtDate, fmtMinutes } from '../lib/time';
+import { bookProgress, currentEpisode, currentPage, entriesOf, entryDurationText, entryMinutes, tvProgress } from '../lib/stats';
+import { fmtDate, fmtDuration, fmtMinutes } from '../lib/time';
 import { Card, Cover, Empty, ProgressBar, SectionTitle } from '../components/ui';
 import { EntryForm, WorkForm } from '../components/forms';
 
@@ -45,7 +45,7 @@ export function Detail({
             work.creator,
             work.category,
             work.year && `${work.year} 年`,
-            work.type === 'movie' && work.durationMin && `${work.durationMin} 分钟`,
+            work.type === 'movie' && (work.durationMin || work.durationSec) && fmtDuration(work.durationMin, work.durationSec),
             work.type === 'tv' && work.totalEpisodes && `共 ${work.totalEpisodes} 集`,
           ]
             .filter(Boolean)
@@ -136,7 +136,7 @@ export function Detail({
                   {e.page ? <span className="text-ink/50"> · 读到第 {e.page} 页</span> : null}
                   {e.episode ? <span className="text-ink/50"> · 看到第 {e.episode} 集</span> : null}
                 </span>
-                {entryMinutes(work, e) > 0 ? <span className="shrink-0 text-[12.5px] text-ink/45">{fmtMinutes(entryMinutes(work, e))}</span> : null}
+                {entryDurationText(work, e) ? <span className="shrink-0 text-[12.5px] text-ink/45">{entryDurationText(work, e)}</span> : null}
               </div>
               {e.feeling && <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink/75">{e.feeling}</p>}
               {e.quote && <p className="mt-1.5 border-l-2 border-cinnabar-500/50 pl-2 font-serif text-[13.5px] italic leading-relaxed text-ink/60">「{e.quote}」</p>}

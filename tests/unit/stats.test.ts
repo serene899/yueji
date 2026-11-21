@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookProgress, currentEpisode, currentPage, entryMinutes, overview, recentWatching, tvProgress, yearReview } from '../../src/lib/stats';
+import { bookProgress, currentEpisode, currentPage, entryDurationText, entryMinutes, overview, recentWatching, tvProgress, yearReview } from '../../src/lib/stats';
 import type { Entry, Work } from '../../src/lib/types';
 
 const book: Work = {
@@ -42,6 +42,24 @@ describe('entryMinutes', () => {
     expect(entryMinutes(movie, entries[2])).toBe(102);
     expect(entryMinutes(movie, { ...entries[2], minutes: undefined })).toBe(102);
     expect(entryMinutes(book, { ...entries[0], minutes: undefined })).toBe(0);
+  });
+  it('v0.4.3：秒数折算进时长（记录优先，片长兜底也含秒）', () => {
+    expect(entryMinutes(book, { ...entries[0], minutes: 10, seconds: 30 })).toBeCloseTo(10.5);
+    expect(entryMinutes(book, { ...entries[0], minutes: undefined, seconds: 45 })).toBeCloseTo(0.75);
+    const m2: Work = { ...movie, durationMin: 143, durationSec: 16 };
+    expect(entryMinutes(m2, { ...entries[2], minutes: undefined })).toBeCloseTo(143 + 16 / 60);
+  });
+});
+
+describe('entryDurationText（v0.4.3）', () => {
+  it('记了秒精确到秒；没记秒沿用小时/分钟口径；都没有则空', () => {
+    expect(entryDurationText(movie, { ...entries[2], minutes: 143, seconds: 16 })).toBe('143 分 16 秒');
+    expect(entryDurationText(book, { ...entries[0], minutes: undefined, seconds: 45 })).toBe('45 秒');
+    expect(entryDurationText(book, entries[0])).toBe('30 分钟');
+    expect(entryDurationText(movie, { ...entries[2], minutes: undefined })).toBe('1 小时 42 分');
+    const m2: Work = { ...movie, durationMin: 143, durationSec: 16 };
+    expect(entryDurationText(m2, { ...entries[2], minutes: undefined })).toBe('143 分 16 秒');
+    expect(entryDurationText(book, { ...entries[0], minutes: undefined })).toBe('');
   });
 });
 

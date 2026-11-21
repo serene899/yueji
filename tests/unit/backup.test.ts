@@ -66,6 +66,16 @@ describe('parseBackup', () => {
     expect(r2.ok).toBe(true);
     if (r2.ok) expect(backupWorkToWork(r2.data.works[0]).subcategory).toBe('音乐');
   });
+  it('v0.4.3 片长秒数与记录秒数能通过校验并往返', async () => {
+    const m: Work = { id: 'm9', type: 'movie', title: '八仙', creator: '某导演', category: '剧情', durationMin: 143, durationSec: 16, status: 'done', highlight: false, createdAt: 1, updatedAt: 1 };
+    const b = await buildBackup([m], [{ id: 'e10', workId: 'm9', date: '2026-11-21', minutes: 143, seconds: 16, feeling: '', quote: '', createdAt: 1, updatedAt: 1 }]);
+    const r = parseBackup(JSON.parse(JSON.stringify(b)));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(backupWorkToWork(r.data.works[0]).durationSec).toBe(16);
+      expect(r.data.entries[0].seconds).toBe(16);
+    }
+  });
   it('电视剧类型与集数字段能通过校验', async () => {
     const tv: Work = { id: 't1', type: 'tv', title: '漫长的季节', creator: '辛爽', category: '悬疑', totalEpisodes: 12, status: 'doing', highlight: false, createdAt: 1, updatedAt: 1 };
     const b = await buildBackup([tv], [{ id: 'e9', workId: 't1', date: '2026-11-21', episode: 7, feeling: '', quote: '', createdAt: 1, updatedAt: 1 }]);

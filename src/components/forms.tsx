@@ -16,8 +16,44 @@ import {
 } from '../lib/types';
 import { db, deleteEntry, deleteWork, putEntry, putWork } from '../lib/db';
 import { processCover } from '../lib/image';
-import { todayStr } from '../lib/time';
+import { fmtDuration, todayStr } from '../lib/time';
 import { Cover, DeleteButton, Field, Segmented, Sheet, inputCls } from './ui';
+
+/**
+ * 时长「分钟 + 秒」双输入（v0.4.3）：电影时长天然带秒（如 143 分 16 秒），
+ * 单个分钟框只能填整数、还会把冒号/小数点吞掉，故拆成两个整数框。
+ * 保存时合成总秒数再拆回，秒 ≥ 60 自动进位到分钟。
+ */
+function splitDuration(minStr: string, secStr: string): { minutes?: number; seconds?: number } {
+  const total = (minStr ? Number(minStr) : 0) * 60 + (secStr ? Number(secStr) : 0);
+  if (!total) return {};
+  return { minutes: Math.floor(total / 60) || undefined, seconds: total % 60 || undefined };
+}
+
+function DurationInputs({
+  min,
+  sec,
+  onMin,
+  onSec,
+  minLabel,
+  secLabel,
+}: {
+  min: string;
+  sec: string;
+  onMin: (v: string) => void;
+  onSec: (v: string) => void;
+  minLabel: string;
+  secLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input aria-label={minLabel} className={inputCls} inputMode="numeric" value={min} onChange={(e) => onMin(e.target.value.replace(/\D/g, ''))} placeholder="143" />
+      <span className="shrink-0 text-[14px] text-ink/55">分</span>
+      <input aria-label={secLabel} className={inputCls} inputMode="numeric" value={sec} onChange={(e) => onSec(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="16" />
+      <span className="shrink-0 text-[14px] text-ink/55">秒</span>
+    </div>
+  );
+}
 
 const CATEGORIES: Record<WorkType, string[]> = {
   book: BOOK_CATEGORIES,
@@ -54,6 +90,7 @@ export function WorkForm({
   const [year, setYear] = useState(initial?.year ? String(initial.year) : '');
   const [totalPages, setTotalPages] = useState(initial?.totalPages ? String(initial.totalPages) : '');
   const [durationMin, setDurationMin] = useState(initial?.durationMin ? String(initial.durationMin) : '');
+  const [durationSec, setDurationSec] = useState(initial?.durationSec ? String(initial.durationSec) : '');
   const [totalEpisodes, setTotalEpisodes] = useState(initial?.totalEpisodes ? String(initial.totalEpisodes) : '');
   const [status, setStatus] = useState<WorkStatus>(initial?.status ?? 'planned');
   const [statusLocked, setStatusLocked] = useState(initial?.statusLocked ?? false);
@@ -112,6 +149,7 @@ export function WorkForm({
       }
     }
     const now = Date.now();
+    const dur = type === 'movie' ? splitDuration(durationMin, durationSec) : {};
     const w: Work = {
       id: initial?.id ?? newId(),
       type,
@@ -121,7 +159,8 @@ export function WorkForm({
       subcategory: type === 'other' ? subcategory || undefined : undefined,
       year: year ? Number(year) : undefined,
       totalPages: type === 'book' && totalPages ? Number(totalPages) : undefined,
-      durationMin: type === 'movie' && durationMin ? Number(durationMin) : undefined,
+      durationMin: dur.minutes,
+      durationSec: dur.seconds,
       totalEpisodes: type === 'tv' && totalEpisodes ? Number(totalEpisodes) : undefined,
       status,
       statusLocked,
@@ -241,8 +280,8 @@ export function WorkForm({
           </Field>
         )}
         {type === 'movie' && (
-          <Field label="片长（分钟）">
-            <input aria-label="片长" className={inputCls} inputMode="numeric" value={durationMin} onChange={(e) => setDurationMin(e.target.value.replace(/\D/g, ''))} placeholder="例如 102" />
+          <Field label="片长">
+            <DurationInputs min={durationMin} sec={durationSec} onMin={setDurationMin} onSec={setDurationSec} minLabel="片长分钟" secLabel="片长秒" />
           </Field>
         )}
         {type === 'tv' && (
@@ -333,6 +372,7 @@ export function EntryForm({
   const [page, setPage] = useState(initial?.page ? String(initial.page) : '');
   const [episode, setEpisode] = useState(initial?.episode ? String(initial.episode) : '');
   const [minutes, setMinutes] = useState(initial?.minutes ? String(initial.minutes) : '');
+  const [seconds, setSeconds] = useState(initial?.seconds ? String(initial.seconds) : '');
   const [feeling, setFeeling] = useState(initial?.feeling ?? '');
   const [quote, setQuote] = useState(initial?.quote ?? '');
   // 感受/句子默认收起：只记进度时不用面对一堆输入框；编辑已有内容时自动展开
@@ -340,13 +380,15 @@ export function EntryForm({
 
   async function save() {
     const now = Date.now();
+    const dur = splitDuration(minutes, seconds);
     const e: Entry = {
       id: initial?.id ?? newId(),
       workId: work.id,
       date: date || todayStr(),
       page: work.type === 'book' && page ? Number(page) : undefined,
       episode: work.type === 'tv' && episode ? Number(episode) : undefined,
-      minutes: minutes ? Number(minutes) : undefined,
+      minutes: dur.minutes,
+      seconds: dur.seconds,
       feeling: feeling.trim(),
       quote: quote.trim(),
       createdAt: initial?.createdAt ?? now,
@@ -374,17 +416,18 @@ export function EntryForm({
             <input aria-label="看到第几集" className={inputCls} inputMode="numeric" value={episode} onChange={(e) => setEpisode(e.target.value.replace(/\D/g, ''))} placeholder="例如 5" />
           </Field>
         )}
-        {work.type === 'movie' && (
-          <Field label="时长（分钟）">
-            <input aria-label="时长分钟" className={inputCls} inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} placeholder={work.durationMin ? String(work.durationMin) : '例如 102'} />
-          </Field>
-        )}
       </div>
-      {work.type !== 'movie' && (
-        <Field label={work.type === 'book' ? '这次读了多久（分钟，可不填）' : '这次看了多久（分钟，可不填）'}>
-          <input aria-label="时长分钟" className={inputCls} inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} placeholder="例如 40" />
-        </Field>
-      )}
+      <Field
+        label={
+          work.type === 'movie'
+            ? `时长${work.durationMin || work.durationSec ? `（片长 ${fmtDuration(work.durationMin, work.durationSec)}）` : ''}`
+            : work.type === 'book'
+              ? '这次读了多久（可不填）'
+              : '这次看了多久（可不填）'
+        }
+      >
+        <DurationInputs min={minutes} sec={seconds} onMin={setMinutes} onSec={setSeconds} minLabel="时长分钟" secLabel="时长秒" />
+      </Field>
       {more ? (
         <>
           <Field label="当时的想法和感受（可不填）">

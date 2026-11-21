@@ -60,7 +60,7 @@ test('阅迹全流程', async ({ page }) => {
   await page.getByLabel('作品名').fill('重庆森林');
   await page.getByLabel('创作者').fill('王家卫');
   await page.getByRole('button', { name: '剧情', exact: true }).click();
-  await page.getByLabel('片长').fill('102');
+  await page.getByLabel('片长分钟').fill('102');
   await page.getByRole('button', { name: '保存', exact: true }).click();
 
   await page.getByText('《重庆森林》').first().click();
@@ -258,4 +258,29 @@ test('导出备份后可导入恢复', async ({ page }) => {
   await expect(page.getByText(/恢复完成/)).toBeVisible();
   await page.getByRole('button', { name: '书架' }).click();
   await expect(page.getByText('《三国演义》').first()).toBeVisible();
+});
+
+test('电影时长可记到秒（v0.4.3）：片长与记录都支持分+秒', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: '添加第一部作品' }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: '🎬 电影' }).click();
+  await page.getByLabel('作品名').fill('八仙');
+  await page.getByLabel('创作者').fill('佚名');
+  await page.getByRole('button', { name: '剧情', exact: true }).click();
+  await page.getByLabel('片长分钟').fill('143');
+  await page.getByLabel('片长秒').fill('16');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+
+  // 详情页：片长显示到秒
+  await page.getByRole('button', { name: '书架' }).click();
+  await page.getByText('《八仙》').first().click();
+  await expect(page.getByText('143 分 16 秒').first()).toBeVisible();
+
+  // 记一次观影：时长填分+秒，保存后历史里精确到秒，累计按折算取整
+  await page.getByRole('button', { name: '＋ 记一次观影' }).click();
+  await page.getByLabel('时长分钟').fill('143');
+  await page.getByLabel('时长秒').fill('16');
+  await page.getByRole('button', { name: '保存记录' }).click();
+  await expect(page.getByText('143 分 16 秒').first()).toBeVisible();
+  await expect(page.getByText('累计 2 小时 23 分')).toBeVisible();
 });

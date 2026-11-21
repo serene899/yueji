@@ -1,5 +1,5 @@
 import type { Entry, Work } from './types';
-import { monthOf, yearOf } from './time';
+import { fmtDuration, monthOf, yearOf } from './time';
 
 /**
  * 进度口径（v0.4.0）：永远按真实记录计算——书看最大页码、剧看最大集数。
@@ -41,13 +41,24 @@ export function entriesOf(workId: string, entries: Entry[]): Entry[] {
 }
 
 /**
- * 一条记录的有效时长：填了分钟用分钟；电影没填时按片长兜底
- * （看完一部电影就是花了片长那么久，避免电影时长被系统性低估）。
+ * 一条记录的有效时长（分钟，可含秒折算的小数）：填了时长用时长（含秒）；
+ * 电影没填时按片长兜底（看完一部电影就是花了片长那么久，避免电影时长被系统性低估）。
  */
 export function entryMinutes(work: Work | undefined, e: Entry): number {
-  if (e.minutes) return e.minutes;
-  if (work?.type === 'movie' && work.durationMin) return work.durationMin;
+  if (e.minutes || e.seconds) return (e.minutes ?? 0) + (e.seconds ?? 0) / 60;
+  if (work?.type === 'movie' && (work.durationMin || work.durationSec)) {
+    return (work.durationMin ?? 0) + (work.durationSec ?? 0) / 60;
+  }
   return 0;
+}
+
+/** 一条记录的时长展示文案：记录自带时长优先，其次电影片长兜底，都没有则空串 */
+export function entryDurationText(work: Work | undefined, e: Entry): string {
+  if (e.minutes || e.seconds) return fmtDuration(e.minutes, e.seconds);
+  if (work?.type === 'movie' && (work.durationMin || work.durationSec)) {
+    return fmtDuration(work.durationMin, work.durationSec);
+  }
+  return '';
 }
 
 export interface YearActivity {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { TYPE_ICON, type Entry, type Work } from '../lib/types';
-import { fmtMinutes } from '../lib/time';
+import { fmtDuration } from '../lib/time';
 import { Card, Empty } from '../components/ui';
 
 /** 记录页：全部记录按月倒序——「我这段时间读了什么、看了什么」一眼看清。 */
@@ -59,7 +59,7 @@ export function Records({
                       {TYPE_ICON[w.type]} 《{w.title}》
                       {e.page ? <span className="text-ink/50"> · 第 {e.page} 页</span> : null}
                       {e.episode ? <span className="text-ink/50"> · 第 {e.episode} 集</span> : null}
-                      {e.minutes ? <span className="text-ink/50"> · {fmtMinutes(e.minutes)}</span> : null}
+                      {e.minutes || e.seconds ? <span className="text-ink/50"> · {fmtDuration(e.minutes, e.seconds)}</span> : null}
                     </span>
                     <span className="shrink-0 text-[12px] text-ink/45">{Number(e.date.slice(8, 10))} 日</span>
                   </div>

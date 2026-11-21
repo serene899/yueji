@@ -23,6 +23,8 @@ export interface Work {
   totalPages?: number;
   /** 电影：片长（分钟） */
   durationMin?: number;
+  /** 片长秒数（v0.4.3，可选）：电影片长常是「143 分 16 秒」，只存分钟会丢掉秒 */
+  durationSec?: number;
   /** 电视剧：总集数 */
   totalEpisodes?: number;
   /** 「其他」类型的细分类（v0.4.0）：音乐/播客/纪录片/综艺/游戏/演出/展览/其他，可空 */
@@ -53,6 +55,8 @@ export interface Entry {
   episode?: number;
   /** 这次阅读/观影时长（分钟），可空 */
   minutes?: number;
+  /** 时长秒数（v0.4.3，可选，0–59）：与 minutes 共同表示一次时长，如 143 分 16 秒 */
+  seconds?: number;
   /** 当时的想法和感受 */
   feeling: string;
   /** 收藏的句子：书里的句子 / 电影的台词或片段描述 */
