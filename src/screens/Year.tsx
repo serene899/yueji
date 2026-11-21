@@ -65,7 +65,7 @@ export function Year({
           [r.finishedMovies.length, '部看完的电影'],
         ].map(([n, label]) => (
           <div key={label}>
-            <div className="font-serif text-[21px] font-bold">{n}</div>
+            <div className="text-[21px] font-bold tabular-nums">{n}</div>
             <div className="mt-0.5 text-[12px] text-ink/50">{label}</div>
           </div>
         ))}
@@ -82,7 +82,7 @@ export function Year({
           [fmtMinutes(r.totalMinutes) || '0 分钟', '总时长'],
         ].map(([n, label]) => (
           <div key={label}>
-            <div className="font-serif text-[19px] font-bold">{n}</div>
+            <div className="whitespace-nowrap text-[17px] font-bold tabular-nums">{n}</div>
             <div className="mt-0.5 text-[12px] text-ink/50">{label}</div>
           </div>
         ))}
@@ -103,7 +103,7 @@ export function Year({
                 className={`w-full rounded-t ${n > 0 ? 'bg-cinnabar-500/80' : 'bg-ink/[0.07]'}`}
                 style={{ height: `${Math.max(6, (n / maxMonth) * 72)}px` }}
               />
-              <span className="text-[10px] text-ink/45">{i + 1}月</span>
+              <span className="whitespace-nowrap text-[9.5px] text-ink/45">{i + 1}月</span>
             </div>
           ))}
         </div>

@@ -67,7 +67,7 @@ export function Home({
           [ov.watchingEntries, '条观看记录'],
         ].map(([n, label]) => (
           <div key={label as string}>
-            <div className="font-serif text-[20px] font-bold">{n}</div>
+            <div className="text-[20px] font-bold tabular-nums">{n}</div>
             <div className="mt-0.5 text-[11.5px] text-ink/50">{label}</div>
           </div>
         ))}

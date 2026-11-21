@@ -20,7 +20,9 @@ export default {
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"PingFang SC"', '"Hiragino Sans GB"', '"Noto Sans CJK SC"', '"Microsoft YaHei"', 'sans-serif'],
-        serif: ['"Noto Serif SC"', '"Songti SC"', '"STSong"', 'Georgia', 'serif'],
+        // 宋体栈：Georgia 必须排在中文宋体前面——拉丁字母与数字先命中 Georgia（优雅的老式数字），
+        // 汉字再落到 Songti/Noto Serif SC。若中文宋体在前，数字会被宋体的粗重数字字形渲染（v0.4.2 修复）。
+        serif: ['Georgia', '"Times New Roman"', '"Noto Serif SC"', '"Songti SC"', '"STSong"', 'serif'],
       },
     },
   },

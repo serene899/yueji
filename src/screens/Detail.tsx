@@ -66,7 +66,7 @@ export function Detail({
         <Card className="mt-4 px-4 py-3.5">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="text-[14px] text-ink/60">阅读进度</span>
-            <span className="font-serif text-[17px] font-bold text-cinnabar-600">
+            <span className="text-[17px] font-bold tabular-nums text-cinnabar-600">
               {p !== null ? `${Math.round(p * 100)}%` : '—'}
               <span className="ml-2 text-[13px] font-normal text-ink/50">读到 {page} / {work.totalPages} 页</span>
             </span>
@@ -83,7 +83,7 @@ export function Detail({
         <Card className="mt-4 px-4 py-3.5">
           <div className="mb-2 flex items-baseline justify-between">
             <span className="text-[14px] text-ink/60">追剧进度</span>
-            <span className="font-serif text-[17px] font-bold text-iris-600">
+            <span className="text-[17px] font-bold tabular-nums text-iris-600">
               {tp !== null ? `${Math.round(tp * 100)}%` : '—'}
               <span className="ml-2 text-[13px] font-normal text-ink/50">看到 {ep} / {work.totalEpisodes} 集</span>
             </span>
