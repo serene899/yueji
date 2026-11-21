@@ -129,7 +129,7 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
           它不社交、没有点赞和排行，只是安安静静地记下你读过什么、看过什么，
           以及在不同时间里，它们给过你什么样的感受。
         </p>
-        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.4.0 · LIFEOS 项目 05</p>
+        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.4.1 · LIFEOS 项目 05</p>
       </Card>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './lib/db';
 import { Home } from './screens/Home';
@@ -96,6 +96,87 @@ export default function App() {
     setDetailId(null);
   }
 
+  // ---- 底栏 3D 液态玻璃滑动选择（v0.4.1，沿用生息 v0.4.4 机制）：指针拖动跟随、松手就近吸附、
+  // 拖动时指示块按距离拉伸、按速度倾斜，松手由弹簧曲线回弹归位；拖后吞掉紧随的 click ----
+  const NAV_PAD = 6;
+  const NAV_GAP = 4;
+  const DRAG_THRESHOLD = 6;
+  const barRef = useRef<HTMLDivElement>(null);
+  const [segW, setSegW] = useState(0);
+  const [drag, setDragState] = useState<{ x: number; stretch: number; skew: number } | null>(null);
+  const dragRef = useRef<{ x: number; stretch: number; skew: number } | null>(null);
+  const [pressed, setPressed] = useState(false);
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  const suppressClickAt = useRef(0);
+
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const measure = () => setSegW(Math.max(0, (el.clientWidth - NAV_PAD * 2 - NAV_GAP * (TABS.length - 1)) / TABS.length));
+    measure();
+    if (typeof ResizeObserver === 'function') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  const step = segW + NAV_GAP;
+  const activeIdx = TABS.findIndex((t) => t.key === tab);
+  const dragging = drag !== null;
+  const pillX = drag ? drag.x : activeIdx * step;
+  const pillStretch = drag ? drag.stretch : 1;
+  const pillSkew = drag ? drag.skew : 0;
+
+  function setDrag(v: { x: number; stretch: number; skew: number } | null) {
+    dragRef.current = v;
+    setDragState(v);
+  }
+
+  function onNavPointerDown(e: React.PointerEvent) {
+    if (!segW || e.button > 0) return;
+    setPressed(true);
+    const idx = TABS.findIndex((t) => t.key === tabRef.current);
+    const d = { startX: e.clientX, baseX: idx * step, moved: false, lastX: e.clientX, lastT: performance.now(), skew: 0 };
+    const maxX = (TABS.length - 1) * step;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - d.startX;
+      if (Math.abs(dx) > DRAG_THRESHOLD) d.moved = true;
+      const now = performance.now();
+      const vel = (ev.clientX - d.lastX) / Math.max(1, now - d.lastT); // px/ms
+      d.lastX = ev.clientX;
+      d.lastT = now;
+      // 倾斜跟随速度（平滑后限幅 ±7°）；拉伸跟随已拖距离（上限 +20%）
+      d.skew = d.skew * 0.55 + Math.min(7, Math.max(-7, vel * 5)) * 0.45;
+      const stretch = 1 + Math.min(1.5, Math.abs(dx) / step) * 0.13;
+      setDrag({ x: Math.min(Math.max(d.baseX + dx, 0), maxX), stretch, skew: d.skew });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      setPressed(false);
+      const cur = dragRef.current;
+      setDrag(null);
+      if (d.moved && cur && step > 0) {
+        suppressClickAt.current = Date.now();
+        const target = Math.min(TABS.length - 1, Math.max(0, Math.round(cur.x / step)));
+        if (TABS[target].key !== tabRef.current) switchTab(TABS[target].key);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  }
+
+  function onTabClick(t: Tab) {
+    if (Date.now() - suppressClickAt.current < 350) return; // 刚拖动过，这次 click 是拖动的尾巴
+    switchTab(t);
+  }
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col">
       <header className="pt-safe sticky top-0 z-30 bg-paper/90 backdrop-blur-xl">
@@ -128,18 +209,46 @@ export default function App() {
 
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40" aria-label="主导航">
         <div className="mx-auto max-w-[520px] px-4 pb-2">
-          <div className="flex rounded-[26px] border border-ink/[0.07] bg-card/85 shadow-[0_10px_30px_rgb(60_40_20/0.12)] backdrop-blur-xl">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => switchTab(t.key)}
-                aria-current={tab === t.key && !detailWork ? 'page' : undefined}
-                className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 ${tab === t.key && !detailWork ? 'text-cinnabar-600' : 'text-ink/45'}`}
-              >
-                <TabIcon tab={t.key} active={tab === t.key && !detailWork} />
-                <span className={`text-[11.5px] ${tab === t.key && !detailWork ? 'font-semibold' : ''}`}>{t.label}</span>
-              </button>
-            ))}
+          <div
+            ref={barRef}
+            className="relative flex gap-1 rounded-[28px] border border-ink/[0.07] bg-card/85 p-1.5 shadow-[0_10px_30px_rgb(60_40_20/0.12)] backdrop-blur-xl"
+            style={{ touchAction: 'none' }}
+            onPointerDown={onNavPointerDown}
+          >
+            {/* 3D 液态玻璃指示块：跟随手指（含拉伸/倾斜的液体变形），松手弹簧回弹吸附到选中页 */}
+            <div
+              aria-hidden
+              data-testid="nav-pill"
+              className="nav-pill-3d pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 rounded-[22px]"
+              style={{
+                width: segW ? segW : undefined,
+                opacity: segW ? 1 : 0,
+                transform: `translateX(${pillX}px) scaleX(${dragging ? pillStretch : pressed ? 1.05 : 1}) scaleY(${dragging ? 1 - (pillStretch - 1) * 0.35 : pressed ? 1.03 : 1}) skewX(${pillSkew}deg)`,
+                filter: dragging || pressed ? 'brightness(1.05)' : undefined,
+                transition: dragging
+                  ? 'none'
+                  : pressed
+                    ? 'transform 0.18s ease-out, filter 0.18s ease-out'
+                    : 'transform 0.5s cubic-bezier(0.34, 1.35, 0.64, 1), filter 0.25s ease-out',
+              }}
+            >
+              <span className="nav-pill-gloss" />
+              <span className="nav-pill-caustic" />
+            </div>
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => onTabClick(t.key)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative z-10 flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[22px] transition-colors ${active ? 'text-cinnabar-600' : 'text-ink/45'}`}
+                >
+                  <TabIcon tab={t.key} active={active} />
+                  <span className={`text-[11.5px] ${active ? 'font-semibold' : ''}`}>{t.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>
