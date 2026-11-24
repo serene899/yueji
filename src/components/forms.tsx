@@ -16,7 +16,7 @@ import {
 } from '../lib/types';
 import { db, deleteEntry, deleteWork, putEntry, putWork } from '../lib/db';
 import { processCover, processCoverBlob } from '../lib/image';
-import { bgmTypesFor, fetchImageBlob, fetchWikiCredits, searchCovers, type CoverCandidate } from '../lib/lookup';
+import { bgmTypesFor, fetchImageBlob, fetchTmdbCredits, fetchWikiCredits, getTmdbKey, searchCovers, searchTmdbCovers, type CoverCandidate } from '../lib/lookup';
 import { fmtDuration, todayStr } from '../lib/time';
 import { Cover, DeleteButton, Field, Segmented, Sheet, inputCls } from './ui';
 
@@ -145,10 +145,26 @@ export function WorkForm({
     setFinding(true);
     setLookupMsg('');
     setCandidates(null);
+    let note = '';
     try {
+      // 填了 TMDB 密钥时影视优先走 TMDB（海报与演职员最全）；没结果或密钥不对再回落 Bangumi
+      const key = getTmdbKey();
+      if (key && (type === 'movie' || type === 'tv')) {
+        try {
+          const list = await searchTmdbCovers(type, title, key);
+          if (list.length) {
+            setCandidates(list);
+            setFinding(false);
+            return;
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes('401')) note = 'TMDB 密钥好像不对（可以去「我的」里检查），先用 Bangumi 找：';
+        }
+      }
       const list = await searchCovers(type, subcategory || undefined, title, creator);
       setCandidates(list);
       if (!list.length) setLookupMsg('没搜到这部作品的封面——可以检查一下名字，或用下面的「选择封面」手动上传。');
+      else if (note) setLookupMsg(note);
     } catch {
       setLookupMsg('网络没连上，封面没找成。可以手动选图，不影响保存。');
     }
@@ -170,8 +186,14 @@ export function WorkForm({
         filled.push('作者');
       }
       if (type === 'movie' || type === 'tv') {
-        // 顺带补导演/主演：只填还空着的栏，绝不覆盖他已经写好的
-        const credits = await fetchWikiCredits(c.title, c.year ?? (year ? Number(year) : undefined));
+        // 顺带补导演/主演：TMDB 条目用 TMDB 演职员，Bangumi 条目用 Wikidata；只填空栏，不覆盖已写的
+        const credits = c.tmdb
+          ? await fetchTmdbCredits(c.tmdb.kind, c.tmdb.id, getTmdbKey())
+          : await fetchWikiCredits(c.title, c.year ?? (year ? Number(year) : undefined));
+        if (c.tmdb?.genre && !category.trim() && cats.includes(c.tmdb.genre)) {
+          setCategory(c.tmdb.genre);
+          filled.push('类型');
+        }
         if (credits) {
           if (!creator.trim() && credits.director) {
             setCreator(credits.director);
@@ -320,7 +342,9 @@ export function WorkForm({
           <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink/45">
             {type === 'book'
               ? '按书名从 Open Library 找书封，选中后顺带补作者和年份。'
-              : '按名字从 Bangumi 找海报，同名的都在下面列出来、你点对的那张；选中后还会顺带补导演和主演。'}
+              : getTmdbKey()
+                ? '优先从 TMDB 找海报（演职员最全），同名的都在下面列出来、你点对的那张；选中后顺带补导演、主演和类型。'
+                : '按名字从 Bangumi 找海报，同名的都在下面列出来、你点对的那张；选中后还会顺带补导演和主演。想要更全的真人电影海报，可以去「我的」里填一个 TMDB 免费密钥。'}
           </p>
           {lookupMsg && <p className="mt-1.5 text-[12.5px] leading-relaxed text-cinnabar-600">{lookupMsg}</p>}
           {candidates && candidates.length > 0 && (

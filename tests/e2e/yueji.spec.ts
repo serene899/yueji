@@ -371,3 +371,46 @@ test('联网找封面（v0.5.0）：选海报后自动补导演、主演、年�
   await page.getByText('《重庆森林》').first().click();
   await expect(page.getByText('主演 林青霞、梁朝伟')).toBeVisible();
 });
+
+test('TMDB 找封面（v0.5.1）：填了密钥后优先 TMDB，补导演/主演/类型', async ({ page }) => {
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+    'base64',
+  );
+  await page.addInitScript(() => localStorage.setItem('yueji.tmdb.key', 'test-key'));
+  await page.route('**/api.themoviedb.org/**', (route) => {
+    const url = route.request().url();
+    if (url.includes('/search/')) {
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: [{ id: 111, title: '重庆森林', release_date: '1994-07-14', poster_path: '/cq.jpg', genre_ids: [18] }],
+        }),
+      });
+    }
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        cast: [
+          { name: '林青霞', order: 0 },
+          { name: '梁朝伟', order: 1 },
+        ],
+        crew: [{ name: '王家卫', job: 'Director' }],
+      }),
+    });
+  });
+  await page.route('**/image.tmdb.org/**', (route) => route.fulfill({ contentType: 'image/jpeg', body: png }));
+
+  await page.goto('./');
+  await page.getByRole('button', { name: '添加第一部作品' }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: '🎬 电影' }).click();
+  await page.getByLabel('作品名').fill('重庆森林');
+  await page.getByRole('button', { name: '联网找封面' }).click();
+  // 候选来自 TMDB（来源标签可见）
+  await expect(page.getByText('TMDB').first()).toBeVisible();
+  await page.getByRole('button', { name: /重庆森林/ }).click();
+  await expect(page.getByLabel('创作者')).toHaveValue('王家卫');
+  await expect(page.getByLabel('主演')).toHaveValue('林青霞、梁朝伟');
+  await expect(page.getByLabel('年份')).toHaveValue('1994');
+  await expect(page.getByLabel('分类')).toHaveValue('剧情');
+});

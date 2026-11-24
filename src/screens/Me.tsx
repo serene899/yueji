@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { exportBackup, importBackup } from '../lib/backup';
 import { exportExchange } from '../lib/lifeos';
-import { Card, SectionTitle } from '../components/ui';
+import { getTmdbKey, setTmdbKey } from '../lib/lookup';
+import { Card, SectionTitle, inputCls } from '../components/ui';
 
 const LAST_BACKUP_KEY = 'yueji-last-backup-at';
 
@@ -19,6 +20,9 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
   const [msg, setMsg] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [hint, setHint] = useState(backupHint);
+  const [tmdbInput, setTmdbInput] = useState(getTmdbKey);
+  const [tmdbSaved, setTmdbSaved] = useState(() => !!getTmdbKey());
+  const [tmdbMsg, setTmdbMsg] = useState('');
 
   async function doExport() {
     const name = await exportBackup();
@@ -122,6 +126,58 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
         </p>
       </Card>
 
+      <SectionTitle>联网海报源（TMDB）</SectionTitle>
+      <Card className="space-y-3 px-4 py-4">
+        <p className="text-[14px] leading-relaxed text-ink/70">
+          TMDB 是海报和演职员最全的免费资料库。把你自己注册的 TMDB 密钥填进来，
+          「联网找封面」就会优先从 TMDB 找——真人电影的海报命中率会高很多，选中后导演、主演、类型一起补上。
+          没填也能用（走 Bangumi + Wikidata）。
+        </p>
+        <input
+          aria-label="TMDB 密钥"
+          className={inputCls}
+          value={tmdbInput}
+          onChange={(e) => setTmdbInput(e.target.value)}
+          placeholder="把 TMDB 的 API Key 粘贴到这里"
+          autoCapitalize="off"
+          autoCorrect="off"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setTmdbKey(tmdbInput);
+              const ok = !!getTmdbKey();
+              setTmdbSaved(ok);
+              setTmdbMsg(ok ? '已保存。下次添加电影/电视剧时点「联网找封面」就会先走 TMDB。' : '先把密钥粘贴进来，再点保存。');
+            }}
+            className="flex-1 rounded-xl bg-cinnabar-600 py-2.5 text-[15px] font-semibold text-white"
+          >
+            保存密钥
+          </button>
+          {tmdbSaved && (
+            <button
+              onClick={() => {
+                setTmdbKey('');
+                setTmdbInput('');
+                setTmdbSaved(false);
+                setTmdbMsg('已清除，恢复用 Bangumi + Wikidata 找封面。');
+              }}
+              className="rounded-xl bg-ink/[0.06] px-4 py-2.5 text-[15px] text-ink/70"
+            >
+              清除
+            </button>
+          )}
+        </div>
+        {tmdbMsg && <p className="text-[13.5px] leading-relaxed text-ink/70">{tmdbMsg}</p>}
+        <p className="text-[13px] leading-relaxed text-ink/45">
+          还没有密钥？去{' '}
+          <a href="https://www.themoviedb.org/signup" target="_blank" rel="noreferrer" className="font-medium text-cinnabar-600 underline">
+            TMDB 官网免费注册
+          </a>
+          ，拿到 API Key 后粘贴到上面。密钥只存在这台手机的浏览器里，不进备份、不上传任何地方。
+        </p>
+      </Card>
+
       <SectionTitle>关于阅迹</SectionTitle>
       <Card className="px-4 py-4">
         <p className="font-serif text-[15px] leading-relaxed text-ink/75">
@@ -129,7 +185,7 @@ export function Me({ worksCount, entriesCount }: { worksCount: number; entriesCo
           它不社交、没有点赞和排行，只是安安静静地记下你读过什么、看过什么，
           以及在不同时间里，它们给过你什么样的感受。
         </p>
-        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.5.0 · LIFEOS 项目 05</p>
+        <p className="mt-3 text-[13px] text-ink/45">阅迹 v0.5.1 · LIFEOS 项目 05</p>
       </Card>
     </div>
   );

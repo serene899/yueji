@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bgmTypesFor, mapBgmSubjects, mapOlDocs, pickWikiEntity } from '../../src/lib/lookup';
+import { bgmTypesFor, mapBgmSubjects, mapOlDocs, mapTmdbCredits, mapTmdbResults, pickWikiEntity } from '../../src/lib/lookup';
 
 describe('mapOlDocs（Open Library 书封候选）', () => {
   it('只保留有封面的结果，作者/年份/封面地址正确映射', () => {
@@ -44,6 +44,47 @@ describe('bgmTypesFor', () => {
     expect(bgmTypesFor('other', '游戏')).toBeNull();
     expect(bgmTypesFor('other', '播客')).toBeNull();
     expect(bgmTypesFor('book')).toBeNull();
+  });
+});
+
+describe('mapTmdbResults（v0.5.1）', () => {
+  it('电影/剧分别取 title/name 与 release_date/first_air_date，无海报的过滤，类型映射中文', () => {
+    const movies = mapTmdbResults(
+      {
+        results: [
+          { id: 111, title: '重庆森林', release_date: '1994-07-14', poster_path: '/cq.jpg', genre_ids: [18, 10749] },
+          { id: 112, title: '无海报', release_date: '2000-01-01', poster_path: null, genre_ids: [] },
+        ],
+      },
+      'movie',
+    );
+    expect(movies).toHaveLength(1);
+    expect(movies[0]).toMatchObject({ title: '重庆森林', year: 1994, source: 'tmdb' });
+    expect(movies[0].fullUrl).toBe('https://image.tmdb.org/t/p/w500/cq.jpg');
+    expect(movies[0].tmdb).toEqual({ id: 111, kind: 'movie', genre: '剧情' });
+    const tvs = mapTmdbResults({ results: [{ id: 9, name: '漫长的季节', first_air_date: '2023-04-22', poster_path: '/ml.jpg', genre_ids: [9648] }] }, 'tv');
+    expect(tvs[0]).toMatchObject({ title: '漫长的季节', year: 2023 });
+    expect(tvs[0].tmdb?.genre).toBe('悬疑');
+  });
+});
+
+describe('mapTmdbCredits（v0.5.1）', () => {
+  it('导演取 crew 中 job=Director，主演按 order 取前 6', () => {
+    const credits = mapTmdbCredits({
+      cast: [
+        { name: '梁朝伟', order: 1 },
+        { name: '林青霞', order: 0 },
+        { name: '王菲', order: 2 },
+      ],
+      crew: [
+        { name: '王家卫', job: 'Director' },
+        { name: '杜可风', job: 'Director of Photography' },
+      ],
+    });
+    expect(credits?.director).toBe('王家卫');
+    expect(credits?.cast).toEqual(['林青霞', '梁朝伟', '王菲']);
+    expect(mapTmdbCredits({ cast: [], crew: [] })).toBeNull();
+    expect(mapTmdbCredits(null)).toBeNull();
   });
 });
 

@@ -14,7 +14,7 @@ import { readAll } from './db';
 export const LIFEOS_SOURCE = 'lifeos.yueji' as const;
 export const EXCHANGE_FORMAT = 'lifeos-exchange' as const;
 export const PROTOCOL_VERSION = '0.1.2' as const;
-export const YUEJI_APP_VERSION = '0.5.0';
+export const YUEJI_APP_VERSION = '0.5.1';
 
 function canonicalize(v: unknown): string {
   if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';

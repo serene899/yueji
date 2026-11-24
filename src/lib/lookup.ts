@@ -11,7 +11,7 @@
 import type { WorkType } from './types';
 
 export interface CoverCandidate {
-  source: 'bangumi' | 'openlibrary';
+  source: 'bangumi' | 'openlibrary' | 'tmdb';
   sourceLabel: string;
   title: string;
   year?: number;
@@ -19,6 +19,8 @@ export interface CoverCandidate {
   creatorLabel?: string;
   thumbUrl: string;
   fullUrl: string;
+  /** TMDB 条目信息（v0.5.1）：选中后按 id 拉演职员，genre 是已映射的中文类型名 */
+  tmdb?: { id: number; kind: 'movie' | 'tv'; genre?: string };
 }
 
 export interface WikiCredits {
@@ -211,6 +213,103 @@ function pickLabel(labels: unknown): string | undefined {
     if (isRecord(l) && typeof l.value === 'string' && l.value) return l.value;
   }
   return undefined;
+}
+
+/* ---------------- TMDB（v0.5.1，需所有者本人的免费密钥） ----------------
+ * 海报与演职员覆盖最全的源。密钥由所有者在 themoviedb.org 免费注册后填进「我的」页，
+ * 只存本机 localStorage——不进数据库、不进备份、不进交换文件。填了密钥后影视搜索优先走 TMDB，
+ * 没填或搜不到时自动回落 Bangumi + Wikidata（v0.5.0 的组合）。 */
+
+const TMDB_KEY_STORAGE = 'yueji.tmdb.key';
+
+export function getTmdbKey(): string {
+  try {
+    return localStorage.getItem(TMDB_KEY_STORAGE) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setTmdbKey(key: string): void {
+  try {
+    if (key.trim()) localStorage.setItem(TMDB_KEY_STORAGE, key.trim());
+    else localStorage.removeItem(TMDB_KEY_STORAGE);
+  } catch {
+    /* 隐私模式等场景存不下就算了，不报错 */
+  }
+}
+
+const TMDB_GENRES: Record<number, string> = {
+  28: '动作', 12: '冒险', 16: '动画', 35: '喜剧', 80: '犯罪', 99: '纪录片', 18: '剧情',
+  10751: '家庭', 14: '奇幻', 36: '历史', 27: '恐怖', 10402: '音乐', 9648: '悬疑',
+  10749: '爱情', 878: '科幻', 10770: '电视电影', 53: '惊悚', 10752: '战争', 37: '西部',
+  10759: '动作冒险', 10762: '儿童', 10764: '真人秀', 10765: '科幻奇幻', 10768: '战争政治',
+};
+
+export function mapTmdbResults(json: unknown, kind: 'movie' | 'tv'): CoverCandidate[] {
+  if (!isRecord(json) || !Array.isArray(json.results)) return [];
+  const out: CoverCandidate[] = [];
+  for (const r of json.results) {
+    if (!isRecord(r) || typeof r.id !== 'number' || typeof r.poster_path !== 'string' || !r.poster_path) continue;
+    const title = (typeof r.title === 'string' && r.title) || (typeof r.name === 'string' && r.name) || '';
+    if (!title) continue;
+    const genreIds = Array.isArray(r.genre_ids) ? r.genre_ids : [];
+    const genre = genreIds.map((g) => (typeof g === 'number' ? TMDB_GENRES[g] : undefined)).find(Boolean);
+    out.push({
+      source: 'tmdb',
+      sourceLabel: 'TMDB',
+      title,
+      year: yearOf(r.release_date) ?? yearOf(r.first_air_date),
+      thumbUrl: `https://image.tmdb.org/t/p/w185${r.poster_path}`,
+      fullUrl: `https://image.tmdb.org/t/p/w500${r.poster_path}`,
+      tmdb: { id: r.id, kind, genre },
+    });
+  }
+  return out;
+}
+
+export async function searchTmdbCovers(kind: 'movie' | 'tv', title: string, key: string): Promise<CoverCandidate[]> {
+  const params = new URLSearchParams({
+    api_key: key,
+    query: title.trim(),
+    language: 'zh-CN',
+    include_adult: 'false',
+  });
+  const json = await fetchJson(`https://api.themoviedb.org/3/search/${kind}?${params.toString()}`);
+  return mapTmdbResults(json, kind);
+}
+
+export function mapTmdbCredits(json: unknown): WikiCredits | null {
+  if (!isRecord(json)) return null;
+  const castArr = Array.isArray(json.cast) ? json.cast : [];
+  const crewArr = Array.isArray(json.crew) ? json.crew : [];
+  const name = (v: unknown): string => (isRecord(v) && typeof v.name === 'string' ? v.name : '');
+  const directors = crewArr
+    .filter((c) => isRecord(c) && c.job === 'Director')
+    .map(name)
+    .filter(Boolean)
+    .slice(0, 2);
+  const cast = [...castArr]
+    .sort((a, b) => {
+      const oa = isRecord(a) && typeof a.order === 'number' ? a.order : 99;
+      const ob = isRecord(b) && typeof b.order === 'number' ? b.order : 99;
+      return oa - ob;
+    })
+    .map(name)
+    .filter(Boolean)
+    .slice(0, 6);
+  if (!directors.length && !cast.length) return null;
+  return { director: directors.length ? directors.join('、') : undefined, cast };
+}
+
+export async function fetchTmdbCredits(kind: 'movie' | 'tv', id: number, key: string): Promise<WikiCredits | null> {
+  try {
+    const params = new URLSearchParams({ api_key: key, language: 'zh-CN' });
+    const json = await fetchJson(`https://api.themoviedb.org/3/${kind}/${id}/credits?${params.toString()}`);
+    return mapTmdbCredits(json);
+  } catch {
+    return null;
+  }
 }
 
 /** 按片名（+年份）查 Wikidata 的导演与主演。查不到返回 null，全程尽力而为、失败不抛错。 */
