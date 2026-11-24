@@ -284,3 +284,90 @@ test('电影时长可记到秒（v0.4.3）：片长与记录都支持分+秒', a
   await expect(page.getByText('143 分 16 秒').first()).toBeVisible();
   await expect(page.getByText('累计 2 小时 23 分')).toBeVisible();
 });
+
+test('联网找封面（v0.5.0）：选海报后自动补导演、主演、年份', async ({ page }) => {
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+    'base64',
+  );
+  // Bangumi 搜索：一部《重庆森林》候选
+  await page.route('**/api.bgm.tv/v0/search/subjects*', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        total: 1,
+        data: [
+          {
+            id: 1,
+            name: '重慶森林',
+            name_cn: '重庆森林',
+            date: '1994-07-14',
+            nsfw: false,
+            images: {
+              large: 'https://lain.bgm.tv/pic/cover/l/fake.jpg',
+              medium: 'https://lain.bgm.tv/pic/cover/m/fake.jpg',
+              common: 'https://lain.bgm.tv/pic/cover/c/fake.jpg',
+            },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/lain.bgm.tv/**', (route) => route.fulfill({ contentType: 'image/jpeg', body: png }));
+  // Wikidata：搜索 → 演职员 claims → 人名 labels
+  await page.route('**/www.wikidata.org/**', (route) => {
+    const url = route.request().url();
+    if (url.includes('wbsearchentities')) {
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ search: [{ id: 'Q766263', label: '重庆森林', description: '1994年香港電影' }] }),
+      });
+    }
+    if (url.includes('props=claims')) {
+      const claim = (id: string) => ({ mainsnak: { datavalue: { value: { id } } } });
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          entities: {
+            Q766263: {
+              id: 'Q766263',
+              claims: {
+                P57: [claim('Q55431')],
+                P161: [claim('Q256942'), claim('Q319001')],
+                P577: [{ mainsnak: { datavalue: { value: { time: '+1994-07-14T00:00:00Z' } } } }],
+              },
+            },
+          },
+        }),
+      });
+    }
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        entities: {
+          Q55431: { id: 'Q55431', labels: { 'zh-hans': { language: 'zh-hans', value: '王家卫' } } },
+          Q256942: { id: 'Q256942', labels: { 'zh-hans': { language: 'zh-hans', value: '林青霞' } } },
+          Q319001: { id: 'Q319001', labels: { 'zh-hans': { language: 'zh-hans', value: '梁朝伟' } } },
+        },
+      }),
+    });
+  });
+
+  await page.goto('./');
+  await page.getByRole('button', { name: '添加第一部作品' }).click();
+  await page.getByRole('dialog').getByRole('radio', { name: '🎬 电影' }).click();
+  await page.getByLabel('作品名').fill('重庆森林');
+  await page.getByRole('button', { name: '联网找封面' }).click();
+  await page.getByRole('button', { name: /重庆森林/ }).click();
+
+  // 导演、主演、年份被自动补上（只填空栏）
+  await expect(page.getByLabel('创作者')).toHaveValue('王家卫');
+  await expect(page.getByLabel('主演')).toHaveValue('林青霞、梁朝伟');
+  await expect(page.getByLabel('年份')).toHaveValue('1994');
+  await expect(page.getByText(/已补上：封面、年份、导演、主演/)).toBeVisible();
+
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await page.getByRole('button', { name: '书架' }).click();
+  await page.getByText('《重庆森林》').first().click();
+  await expect(page.getByText('主演 林青霞、梁朝伟')).toBeVisible();
+});

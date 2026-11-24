@@ -59,7 +59,7 @@ export function Shelf({
       .filter((w) => filter === 'all' || w.type === filter)
       .filter((w) => status === 'all' || w.status === status)
       .filter((w) => filter !== 'other' || sub === 'all' || (w.subcategory || w.category || '其他') === sub)
-      .filter((w) => !query.trim() || w.title.includes(query.trim()) || w.creator.includes(query.trim()))
+      .filter((w) => !query.trim() || w.title.includes(query.trim()) || w.creator.includes(query.trim()) || (w.cast ?? '').includes(query.trim()))
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }, [works, filter, status, sub, query]);
 
@@ -110,7 +110,7 @@ export function Shelf({
           aria-label="搜索作品"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索作品或作者"
+          placeholder="搜索作品、作者或主演"
           className="min-w-0 flex-1 rounded-xl border border-ink/10 bg-card px-3.5 py-2 text-[15px] outline-none"
         />
         <select

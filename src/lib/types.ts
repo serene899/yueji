@@ -15,6 +15,8 @@ export interface Work {
   title: string;
   /** 书：作者；电影：导演 */
   creator: string;
+  /** 主演（v0.5.0，可选）：电影/电视剧的主要演员，「、」分隔；可手填，也可联网补全（Wikidata） */
+  cast?: string;
   /** 书：分类（如 文学/历史/科幻）；电影：类型（如 剧情/纪录片） */
   category: string;
   /** 出版/上映年份，可空 */

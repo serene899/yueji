@@ -51,6 +51,7 @@ export function Detail({
             .filter(Boolean)
             .join(' · ')}
         </p>
+        {work.cast && <p className="mt-1 max-w-full text-[13px] leading-relaxed text-ink/50">主演 {work.cast}</p>}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-[12.5px]">
           <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">{statusText(work.type, work.status)}</span>
           {work.startDate && <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-ink/65">{fmtDate(work.startDate)} 开始</span>}

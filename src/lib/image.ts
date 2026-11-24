@@ -6,7 +6,12 @@ const QUALITY = 0.82;
 
 /** 把用户选择的图片文件压缩为 JPEG Blob。失败时抛错，由界面提示。 */
 export async function processCover(file: File): Promise<Blob> {
-  const url = URL.createObjectURL(file);
+  return processCoverBlob(file);
+}
+
+/** 把任意图片 Blob（相册文件或联网下载的海报）压缩为 JPEG Blob（v0.5.0 起联网封面共用）。 */
+export async function processCoverBlob(blob: Blob): Promise<Blob> {
+  const url = URL.createObjectURL(blob);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();

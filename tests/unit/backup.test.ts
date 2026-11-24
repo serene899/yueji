@@ -66,6 +66,13 @@ describe('parseBackup', () => {
     expect(r2.ok).toBe(true);
     if (r2.ok) expect(backupWorkToWork(r2.data.works[0]).subcategory).toBe('音乐');
   });
+  it('v0.5.0 主演字段能通过校验并往返', async () => {
+    const m: Work = { id: 'm10', type: 'movie', title: '重庆森林', creator: '王家卫', category: '剧情', cast: '林青霞、梁朝伟', status: 'done', highlight: false, createdAt: 1, updatedAt: 1 };
+    const b = await buildBackup([m], []);
+    const r = parseBackup(JSON.parse(JSON.stringify(b)));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(backupWorkToWork(r.data.works[0]).cast).toBe('林青霞、梁朝伟');
+  });
   it('v0.4.3 片长秒数与记录秒数能通过校验并往返', async () => {
     const m: Work = { id: 'm9', type: 'movie', title: '八仙', creator: '某导演', category: '剧情', durationMin: 143, durationSec: 16, status: 'done', highlight: false, createdAt: 1, updatedAt: 1 };
     const b = await buildBackup([m], [{ id: 'e10', workId: 'm9', date: '2026-11-21', minutes: 143, seconds: 16, feeling: '', quote: '', createdAt: 1, updatedAt: 1 }]);
