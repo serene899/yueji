@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bgmTypesFor, mapBgmSubjects, mapOlDocs, mapTmdbCredits, mapTmdbResults, pickWikiEntity } from '../../src/lib/lookup';
+import { bgmTypesFor, mapBgmSubjects, mapOlDocs, mapTmdbCredits, mapTmdbDetails, mapTmdbResults, pickWikiEntity } from '../../src/lib/lookup';
 
 describe('mapOlDocs（Open Library 书封候选）', () => {
   it('只保留有封面的结果，作者/年份/封面地址正确映射', () => {
@@ -85,6 +85,15 @@ describe('mapTmdbCredits（v0.5.1）', () => {
     expect(credits?.cast).toEqual(['林青霞', '梁朝伟', '王菲']);
     expect(mapTmdbCredits({ cast: [], crew: [] })).toBeNull();
     expect(mapTmdbCredits(null)).toBeNull();
+  });
+});
+
+describe('mapTmdbDetails（v0.5.2 片长/总集数）', () => {
+  it('电影取 runtime、剧取 number_of_episodes，0 与缺失都当没有', () => {
+    expect(mapTmdbDetails({ runtime: 99 }, 'movie')).toEqual({ runtimeMin: 99 });
+    expect(mapTmdbDetails({ runtime: 0 }, 'movie')).toEqual({ runtimeMin: undefined });
+    expect(mapTmdbDetails({ number_of_episodes: 12 }, 'tv')).toEqual({ episodes: 12 });
+    expect(mapTmdbDetails(null, 'movie')).toEqual({});
   });
 });
 

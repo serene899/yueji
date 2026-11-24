@@ -302,6 +302,32 @@ export function mapTmdbCredits(json: unknown): WikiCredits | null {
   return { director: directors.length ? directors.join('、') : undefined, cast };
 }
 
+export interface TmdbExtras {
+  /** 电影片长（分钟，TMDB 只给整分钟） */
+  runtimeMin?: number;
+  /** 电视剧总集数 */
+  episodes?: number;
+}
+
+export function mapTmdbDetails(json: unknown, kind: 'movie' | 'tv'): TmdbExtras {
+  if (!isRecord(json)) return {};
+  if (kind === 'movie') {
+    return { runtimeMin: typeof json.runtime === 'number' && json.runtime > 0 ? json.runtime : undefined };
+  }
+  return { episodes: typeof json.number_of_episodes === 'number' && json.number_of_episodes > 0 ? json.number_of_episodes : undefined };
+}
+
+/** 拉 TMDB 详情补片长/总集数（搜索结果里没有这些，要按 id 再查一次详情）。失败返回空对象。 */
+export async function fetchTmdbDetails(kind: 'movie' | 'tv', id: number, key: string): Promise<TmdbExtras> {
+  try {
+    const params = new URLSearchParams({ api_key: key, language: 'zh-CN' });
+    const json = await fetchJson(`https://api.themoviedb.org/3/${kind}/${id}?${params.toString()}`);
+    return mapTmdbDetails(json, kind);
+  } catch {
+    return {};
+  }
+}
+
 export async function fetchTmdbCredits(kind: 'movie' | 'tv', id: number, key: string): Promise<WikiCredits | null> {
   try {
     const params = new URLSearchParams({ api_key: key, language: 'zh-CN' });

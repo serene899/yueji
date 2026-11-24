@@ -16,7 +16,7 @@ import {
 } from '../lib/types';
 import { db, deleteEntry, deleteWork, putEntry, putWork } from '../lib/db';
 import { processCover, processCoverBlob } from '../lib/image';
-import { bgmTypesFor, fetchImageBlob, fetchTmdbCredits, fetchWikiCredits, getTmdbKey, searchCovers, searchTmdbCovers, type CoverCandidate } from '../lib/lookup';
+import { bgmTypesFor, fetchImageBlob, fetchTmdbCredits, fetchTmdbDetails, fetchWikiCredits, getTmdbKey, searchCovers, searchTmdbCovers, type CoverCandidate } from '../lib/lookup';
 import { fmtDuration, todayStr } from '../lib/time';
 import { Cover, DeleteButton, Field, Segmented, Sheet, inputCls } from './ui';
 
@@ -48,9 +48,9 @@ function DurationInputs({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <input aria-label={minLabel} className={inputCls} inputMode="numeric" value={min} onChange={(e) => onMin(e.target.value.replace(/\D/g, ''))} placeholder="143" />
+      <input aria-label={minLabel} className={inputCls} inputMode="numeric" value={min} onChange={(e) => onMin(e.target.value.replace(/\D/g, ''))} placeholder="0" />
       <span className="shrink-0 text-[14px] text-ink/55">分</span>
-      <input aria-label={secLabel} className={inputCls} inputMode="numeric" value={sec} onChange={(e) => onSec(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="16" />
+      <input aria-label={secLabel} className={inputCls} inputMode="numeric" value={sec} onChange={(e) => onSec(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="0" />
       <span className="shrink-0 text-[14px] text-ink/55">秒</span>
     </div>
   );
@@ -193,6 +193,18 @@ export function WorkForm({
         if (c.tmdb?.genre && !category.trim() && cats.includes(c.tmdb.genre)) {
           setCategory(c.tmdb.genre);
           filled.push('类型');
+        }
+        if (c.tmdb) {
+          // 片长/总集数不在搜索结果里，按 id 再拉一次详情补上（只填空栏）
+          const extras = await fetchTmdbDetails(c.tmdb.kind, c.tmdb.id, getTmdbKey());
+          if (type === 'movie' && extras.runtimeMin && !durationMin && !durationSec) {
+            setDurationMin(String(extras.runtimeMin));
+            filled.push('片长');
+          }
+          if (type === 'tv' && extras.episodes && !totalEpisodes) {
+            setTotalEpisodes(String(extras.episodes));
+            filled.push('总集数');
+          }
         }
         if (credits) {
           if (!creator.trim() && credits.director) {

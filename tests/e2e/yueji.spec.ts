@@ -388,16 +388,20 @@ test('TMDB 找封面（v0.5.1）：填了密钥后优先 TMDB，补导演/主演
         }),
       });
     }
-    return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        cast: [
-          { name: '林青霞', order: 0 },
-          { name: '梁朝伟', order: 1 },
-        ],
-        crew: [{ name: '王家卫', job: 'Director' }],
-      }),
-    });
+    if (url.includes('/credits')) {
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          cast: [
+            { name: '林青霞', order: 0 },
+            { name: '梁朝伟', order: 1 },
+          ],
+          crew: [{ name: '王家卫', job: 'Director' }],
+        }),
+      });
+    }
+    // 详情：片长 99 分钟（v0.5.2 起按 id 拉详情补片长）
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ runtime: 99 }) });
   });
   await page.route('**/image.tmdb.org/**', (route) => route.fulfill({ contentType: 'image/jpeg', body: png }));
 
@@ -413,4 +417,5 @@ test('TMDB 找封面（v0.5.1）：填了密钥后优先 TMDB，补导演/主演
   await expect(page.getByLabel('主演')).toHaveValue('林青霞、梁朝伟');
   await expect(page.getByLabel('年份')).toHaveValue('1994');
   await expect(page.getByLabel('分类')).toHaveValue('剧情');
+  await expect(page.getByLabel('片长分钟')).toHaveValue('99');
 });
